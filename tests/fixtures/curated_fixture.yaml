@@ -1,0 +1,17 @@
+- id: fixture-one
+  name: Fixture Solar Grant One
+  funder: Test Foundation
+  url: https://example.org/one
+  deadline: "2026-12-31"
+  typical_award: "$10,000"
+  eligibility_notes: 501(c)(3) nonprofits.
+  description: A test grant.
+
+- id: fixture-two
+  name: Fixture Solar Loan Two
+  agency: Test State Energy Office
+  url: https://example.org/two
+  deadline: Rolling
+  typical_award: Loan
+  eligibility_notes: Community organizations.
+  description: A test loan program.

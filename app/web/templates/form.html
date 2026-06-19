@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Profile — Solar Grant Navigator{% endblock %}
+{% block content %}
+  {% if error %}
+    <div class="banner error" role="alert">{{ error }}</div>
+  {% endif %}
+
+  <p class="muted">
+    Enter the organization once. Required fields drive the federal search;
+    optional context sharpens the fit scoring. A sparse profile still works —
+    you'll just get wider, lower-confidence matches.
+  </p>
+
+  <form method="post" action="/results">
+    <fieldset>
+      <legend>Required — organization basics</legend>
+      <div class="field">
+        <label for="is_501c3">501(c)(3) status</label>
+        <select id="is_501c3" name="is_501c3">
+          <option value="true">Yes — 501(c)(3)</option>
+          <option value="false">No / other nonprofit</option>
+        </select>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label for="annual_budget_usd">Annual budget (USD)</label>
+          <input id="annual_budget_usd" name="annual_budget_usd" type="number" min="0" required
+                 value="{{ form_values.annual_budget_usd if form_values else '' }}">
+        </div>
+        <div class="field">
+          <label for="org_age_years">Org age (years)</label>
+          <input id="org_age_years" name="org_age_years" type="number" min="0" required
+                 value="{{ form_values.org_age_years if form_values else '' }}">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Required — funding anchor</legend>
+      <div class="grid2">
+        <div class="field">
+          <label for="project_type">Project type</label>
+          <select id="project_type" name="project_type">
+            <option value="solar">Solar</option>
+            <option value="clean_energy">Clean energy (broader)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="funding_preference">Grant or loan?</label>
+          <select id="funding_preference" name="funding_preference">
+            <option value="grant">Grant</option>
+            <option value="loan">Loan</option>
+            <option value="either">Either</option>
+          </select>
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Optional — geography</legend>
+      <div class="grid2">
+        <div class="field">
+          <label for="state">State <span class="hint">(2-letter, e.g. CA)</span></label>
+          <input id="state" name="state" type="text" maxlength="2">
+        </div>
+        <div class="field">
+          <label for="disadvantaged_community">Serves a disadvantaged community?</label>
+          <select id="disadvantaged_community" name="disadvantaged_community">
+            <option value="">Not specified</option>
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="service_area">Service area <span class="hint">(free text)</span></label>
+        <input id="service_area" name="service_area" type="text">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Optional — project specifics</legend>
+      <div class="grid2">
+        <div class="field">
+          <label for="project_specific_type">Type <span class="hint">(rooftop, community…)</span></label>
+          <input id="project_specific_type" name="project_specific_type" type="text">
+        </div>
+        <div class="field">
+          <label for="stage">Stage <span class="hint">(planning, shovel-ready…)</span></label>
+          <input id="stage" name="stage" type="text">
+        </div>
+        <div class="field">
+          <label for="size_kw">System size (kW)</label>
+          <input id="size_kw" name="size_kw" type="number" min="0" step="any">
+        </div>
+        <div class="field">
+          <label for="estimated_cost_usd">Estimated cost (USD)</label>
+          <input id="estimated_cost_usd" name="estimated_cost_usd" type="number" min="0">
+        </div>
+        <div class="field">
+          <label for="amount_needed_usd">Amount needed (USD)</label>
+          <input id="amount_needed_usd" name="amount_needed_usd" type="number" min="0">
+        </div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Optional — mission & populations</legend>
+      <div class="field">
+        <label for="mission_statement">Mission statement</label>
+        <textarea id="mission_statement" name="mission_statement"></textarea>
+      </div>
+      <div class="field">
+        <label for="populations_served">Populations served
+          <span class="hint">(comma-separated, e.g. low-income, rural, tribal)</span></label>
+        <input id="populations_served" name="populations_served" type="text">
+      </div>
+    </fieldset>
+
+    <button class="primary" type="submit">Find funding matches</button>
+  </form>
+{% endblock %}

@@ -1,0 +1,149 @@
+# Curated funding sources for solar nonprofits (PRD section 9).
+# Hand-vetted foundation/state programs that grants.gov does not cover well.
+# Each entry is normalized to an Opportunity and reasoned over by the agents
+# identically to a grants.gov hit. Keep this to ~10-15 high-value sources.
+#
+# Fields: id, name, agency/funder, url, deadline, typical_award,
+#         eligibility_notes, description.
+
+- id: solar-moonshot
+  name: Solar Moonshot Program
+  funder: Hispanic Access Foundation
+  url: https://solarmoonshot.org/
+  deadline: Rolling
+  typical_award: "Up to $100,000"
+  eligibility_notes: >-
+    501(c)(3) nonprofits and tribal entities installing solar on community-serving
+    facilities. Priority for organizations serving low-income communities.
+  description: >-
+    Grants to offset the cost of solar installations for nonprofits and houses of
+    worship, lowering operating costs so more funds go to mission work.
+
+- id: honnold-foundation
+  name: Honnold Foundation Solar Grants
+  funder: Honnold Foundation
+  url: https://www.honnoldfoundation.org/
+  deadline: Annual cycle (spring)
+  typical_award: "$20,000 - $200,000"
+  eligibility_notes: >-
+    Community-based organizations partnering on solar energy projects that
+    increase equity. Strong fit for environmental-justice and Indigenous-led orgs.
+  description: >-
+    Funds community solar projects that reduce energy burden and build local
+    resilience, with an emphasis on community ownership.
+
+- id: pace-financing
+  name: PACE (Property Assessed Clean Energy) Programs
+  funder: State / local PACE administrators
+  url: https://www.energy.gov/scep/slsc/property-assessed-clean-energy-programs
+  deadline: Varies by jurisdiction
+  typical_award: "Loan; project-cost dependent"
+  eligibility_notes: >-
+    Property owners (including some nonprofits) in jurisdictions with active
+    commercial PACE (C-PACE). Repaid via a property tax assessment.
+  description: >-
+    Financing that lets property owners fund solar and efficiency upgrades repaid
+    through their property tax bill. Availability depends on local enabling law.
+
+- id: rewiring-america-nonprofit
+  name: Rewiring America Nonprofit Electrification Support
+  funder: Rewiring America
+  url: https://www.rewiringamerica.org/
+  deadline: Rolling resources
+  typical_award: "Technical assistance + incentive navigation"
+  eligibility_notes: >-
+    Nonprofits and community organizations pursuing building electrification and
+    solar; pairs well with federal Direct Pay (elective pay) for tax credits.
+  description: >-
+    Tools and guidance to help nonprofits stack incentives (including Inflation
+    Reduction Act elective pay) for solar and electrification.
+
+- id: irecsolar-grouped
+  name: IREC Community Solar Capacity Grants
+  funder: Interstate Renewable Energy Council
+  url: https://irecusa.org/
+  deadline: Periodic RFPs
+  typical_award: "$10,000 - $75,000"
+  eligibility_notes: >-
+    Nonprofits and community groups building capacity to develop community solar,
+    especially serving low- and moderate-income subscribers.
+  description: >-
+    Capacity-building support for community solar program design and LMI access.
+
+- id: doe-low-income-communities-bonus
+  name: Low-Income Communities Bonus Credit (Direct Pay)
+  funder: U.S. Department of Energy / IRS
+  url: https://www.energy.gov/justice/low-income-communities-bonus-credit-program
+  deadline: Annual application window
+  typical_award: "Bonus tax credit (10-20%)"
+  eligibility_notes: >-
+    Solar facilities in low-income communities or serving low-income households;
+    tax-exempt orgs claim value via elective (direct) pay.
+  description: >-
+    Adds a bonus investment tax credit for qualifying small solar facilities in
+    low-income communities; nonprofits monetize via direct pay.
+
+- id: clean-energy-states-alliance
+  name: CESA Energy Equity Grants
+  funder: Clean Energy States Alliance
+  url: https://www.cesa.org/
+  deadline: Periodic
+  typical_award: "$15,000 - $50,000"
+  eligibility_notes: >-
+    Community-based nonprofits advancing equitable clean-energy access; often
+    state-program-linked.
+  description: >-
+    Grants and technical help to expand clean-energy access for underserved
+    communities, frequently in partnership with state energy offices.
+
+- id: bank-of-america-environment
+  name: Bank of America Environmental Grants
+  funder: Bank of America Charitable Foundation
+  url: https://about.bankofamerica.com/en/making-an-impact/charitable-foundation-funding
+  deadline: Annual RFP
+  typical_award: "$25,000 - $100,000"
+  eligibility_notes: >-
+    501(c)(3) nonprofits working on environmental sustainability, including clean
+    energy access for underserved communities.
+  description: >-
+    Corporate philanthropy supporting environmental and economic-mobility work,
+    including community clean-energy projects.
+
+- id: rural-energy-for-america
+  name: Rural Energy for America Program (REAP)
+  funder: USDA Rural Development
+  url: https://www.rd.usda.gov/programs-services/energy-programs/rural-energy-america-program-renewable-energy-systems-energy-efficiency-improvement-guaranteed-loans
+  deadline: Quarterly windows
+  typical_award: "Grants up to 50% of project cost; loans available"
+  eligibility_notes: >-
+    Agricultural producers and rural small businesses; some nonprofit-affiliated
+    rural entities qualify. Rural location is required.
+  description: >-
+    Federal grants and loan guarantees for renewable-energy systems in rural
+    areas; strong fit for rural-serving solar projects.
+
+- id: solar-united-neighbors
+  name: Solar United Neighbors Co-op Support
+  funder: Solar United Neighbors
+  url: https://www.solarunitedneighbors.org/
+  deadline: Rolling
+  typical_award: "Group-buy savings + technical assistance"
+  eligibility_notes: >-
+    Community groups and nonprofits organizing solar co-ops; available in many
+    states.
+  description: >-
+    Helps communities form solar co-ops to lower installation costs through group
+    purchasing and provides go-solar guidance.
+
+- id: kresge-climate
+  name: Kresge Foundation Climate Resilience Grants
+  funder: The Kresge Foundation
+  url: https://kresge.org/
+  deadline: By invitation / periodic RFP
+  typical_award: "$50,000 - $250,000"
+  eligibility_notes: >-
+    501(c)(3) organizations advancing climate resilience and equity in
+    American cities, including community solar and energy-burden work.
+  description: >-
+    Funds climate-resilience and equity initiatives, including distributed solar
+    that reduces energy burden for low-income urban residents.
