@@ -2,6 +2,7 @@
 
   python -m eval.run                 # live API (needs ANTHROPIC_API_KEY)
   python -m eval.run --json out.json # also write a machine-readable report
+  python -m eval.run --judge         # score with the LLM-judge matcher (costs more)
 
 Exit code is non-zero if recall falls below --min-recall (default 0.0, i.e. report
 only), so this can gate CI once you trust the numbers.
@@ -18,10 +19,10 @@ from app.agents import VerifyAgent
 from app.agents.client import LLMClient, build_default_client
 from app.models import UnsupportedClaim
 from eval.cases import load_cases
-from eval.scorer import Report, score_case
+from eval.scorer import Matcher, Report, score_case, token_matcher
 
 
-def run(client: LLMClient) -> Report:
+def run(client: LLMClient, matcher: Matcher = token_matcher) -> Report:
     agent = VerifyAgent(client)
     report = Report()
     for case in load_cases():
@@ -29,13 +30,18 @@ def run(client: LLMClient) -> Report:
         try:
             result = agent.verify(case.profile, case.opportunity, draft)
             flags: List[UnsupportedClaim] = result.failures
-            cs = score_case(case, flags)
+            cs = score_case(case, flags, matcher)
         except Exception as exc:  # a crashed case is a real failure mode — record it
-            cs = score_case(case, [])
+            cs = score_case(case, [], matcher)
             cs.errored = True
             cs.false_alarms.append(f"ERROR: {type(exc).__name__}: {exc}")
         report.cases.append(cs)
     return report
+
+
+# Difficulty tiers, easiest first. Cases tagged with any of these are reported
+# as their own row; the order here is the print order.
+_TIER_ORDER = ["obvious", "adversarial", "hard"]
 
 
 def _metrics_block(label: str, r: Report) -> None:
@@ -51,11 +57,14 @@ def print_report(report: Report) -> None:
         flag = " !" if (c.fn or c.errored) else ""
         print(f"{c.name:<42} {c.tp:>3} {c.fp:>3} {c.fn:>3} {c.tn:>3}{flag}")
     print("-" * 58)
-    # Per-tier split is the headline: a perfect "obvious" score is expected;
-    # the "adversarial" tier is the one that actually measures the verifier.
-    _metrics_block("obvious    ", report.subset("obvious"))
-    _metrics_block("adversarial", report.subset("adversarial"))
-    _metrics_block("OVERALL    ", report)
+    # Per-tier split is the headline: "obvious" is the easy baseline, "hard" is
+    # where the verifier is meant to break. Report every tier present, in order.
+    width = max((len(t) for t in _TIER_ORDER), default=7)
+    for tier in _TIER_ORDER:
+        sub = report.subset(tier)
+        if sub.cases:
+            _metrics_block(f"{tier:<{width}}", sub)
+    _metrics_block(f"{'OVERALL':<{width}}", report)
     print()
     print("  P = precision (of flags raised, how many were real)")
     print("  R = recall    (of planted hallucinations, how many were caught)")
@@ -78,8 +87,9 @@ def to_dict(report: Report) -> dict:
     return {
         "overall": _tier_dict(report),
         "by_difficulty": {
-            "obvious": _tier_dict(report.subset("obvious")),
-            "adversarial": _tier_dict(report.subset("adversarial")),
+            tier: _tier_dict(report.subset(tier))
+            for tier in _TIER_ORDER
+            if report.subset(tier).cases
         },
         "cases": [
             {
@@ -98,6 +108,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--json", metavar="PATH", help="Write a JSON report to PATH.")
     parser.add_argument("--min-recall", type=float, default=0.0,
                         help="Exit non-zero if recall is below this (for CI gating).")
+    parser.add_argument("--judge", action="store_true",
+                        help="Score with the LLM-judge matcher (meaning, not tokens; costs more).")
     args = parser.parse_args(argv)
 
     client = build_default_client()
@@ -105,7 +117,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("ANTHROPIC_API_KEY not set — cannot run the live eval.", file=sys.stderr)
         return 2
 
-    report = run(client)
+    matcher = token_matcher
+    if args.judge:
+        from eval.judge import make_judge_matcher
+        matcher = make_judge_matcher(client)
+        print("(scoring with LLM-judge matcher)")
+
+    report = run(client, matcher)
     print_report(report)
     if args.json:
         with open(args.json, "w") as f:

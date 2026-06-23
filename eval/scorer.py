@@ -16,29 +16,35 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import List
+from typing import Callable, List
 
 from app.models import UnsupportedClaim
 from eval.cases import EvalCase, Sentence
+
+# A matcher decides "does this Verify flag refer to this planted sentence?".
+# The default is deterministic token overlap (free, used by CI/tests); --judge
+# swaps in an LLM judge (eval/judge.py) for the rigorous, non-deterministic run.
+Matcher = Callable[[UnsupportedClaim, Sentence], bool]
 
 
 def _norm(s: str) -> str:
     return re.sub(r"[^a-z0-9 ]", " ", s.lower())
 
 
-def _flag_matches_sentence(flag: UnsupportedClaim, sentence: Sentence) -> bool:
-    """Does this Verify flag refer to this planted sentence?
-
-    Match on shared distinctive tokens between the flagged claim text and the
+def token_matcher(flag: UnsupportedClaim, sentence: Sentence) -> bool:
+    """Match on shared distinctive tokens between the flagged claim and the
     planted sentence. Numbers and proper nouns (the stuff that gets fabricated)
     are distinctive, so require overlap on the sentence's content words.
+
+    Blind spot this leaves (the reason --judge exists): a flag that catches a
+    claim in *different words* scores as a miss, and a vague flag that happens to
+    share words scores as a catch. Surface-form, not meaning.
     """
     flag_tokens = set(_norm(flag.claim).split())
     sent_tokens = [t for t in _norm(sentence.text).split() if len(t) > 3]
     if not sent_tokens:
         return False
     overlap = sum(1 for t in sent_tokens if t in flag_tokens)
-    # The flag must cover a meaningful share of the planted sentence's content.
     return overlap >= max(2, len(sent_tokens) // 3)
 
 
@@ -96,15 +102,19 @@ class Report:
         return Report(cases=[c for c in self.cases if c.difficulty == difficulty])
 
 
-def score_case(case: EvalCase, flags: List[UnsupportedClaim]) -> CaseScore:
-    """Score one case given the Verify agent's flagged claims."""
+def score_case(
+    case: EvalCase,
+    flags: List[UnsupportedClaim],
+    matcher: Matcher = token_matcher,
+) -> CaseScore:
+    """Score one case given the Verify agent's flagged claims and a matcher."""
     cs = CaseScore(name=case.name, difficulty=case.difficulty)
     matched_flag_idx: set[int] = set()
 
     for sent in case.all_sentences():
         hit = False
         for i, flag in enumerate(flags):
-            if _flag_matches_sentence(flag, sent):
+            if matcher(flag, sent):
                 hit = True
                 matched_flag_idx.add(i)
         if sent.planted:

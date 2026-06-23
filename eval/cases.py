@@ -383,8 +383,200 @@ def _adversarial() -> List[EvalCase]:
     return cases
 
 
+# --------------------------------------------------------------------------- #
+# Hard tier — cases engineered to make Verify MISS, not just to be subtle. Each
+# requires a reasoning step beyond "is this fact stated?": arithmetic against the
+# profile, chaining two facts, tracking which funder a requirement belongs to, a
+# state/temporal contradiction, or holding the line on precision when primed to
+# find problems. These use a detail-rich fixture so claims are contradictable.
+# --------------------------------------------------------------------------- #
+def _detailed_profile() -> Profile:
+    """Richer than the solar fixture: specific numbers (for arithmetic), an
+    explicit project stage (for temporal contradiction), urban geography (for
+    multi-hop eligibility)."""
+    return Profile(
+        org_basics=OrgBasics(is_501c3=True, annual_budget_usd=800_000, org_age_years=4),
+        project_type="solar",
+        funding_preference=FundingPreference.GRANT,
+        geography=Geo(state="NY", service_area="urban Brooklyn", disadvantaged_community=True),
+        project=ProjectSpecifics(
+            project_type="rooftop solar", size_kw=120.0,
+            estimated_cost_usd=600_000, stage="planning", amount_needed_usd=300_000,
+        ),
+        mission=MissionPopulations(
+            mission_statement="Cut energy costs for urban public-housing residents.",
+            populations_served=["public-housing residents", "low-income"],
+        ),
+    )
+
+
+def _detailed_opp() -> Opportunity:
+    """Opportunity with a specific, contradictable eligibility rule (a rural
+    set-aside) and a stated award ceiling (for arithmetic)."""
+    return Opportunity(
+        id="OPP-URBAN-SOLAR",
+        source=OpportunitySource.GRANTS_GOV,
+        title="Urban Clean Energy Access Grant",
+        agency="DOE",
+        status="posted",
+        aln="81.087",
+        eligibility_notes=(
+            "Open to 501(c)(3) nonprofits. Awards up to 250,000 dollars. A 20 percent "
+            "rural set-aside applies only to applicants whose primary service area is rural."
+        ),
+        description="Funds rooftop and community solar for urban low-income housing.",
+    )
+
+
+def _hard() -> List[EvalCase]:
+    p, o = _detailed_profile, _detailed_opp
+    cases: List[EvalCase] = []
+
+    # ARITHMETIC: ask is 300k but the opp caps awards at 250k. "Within the award
+    # ceiling" is false — requires comparing two numbers, one in the opp text.
+    cases.append(
+        EvalCase(
+            name="hard/arithmetic-over-ceiling",
+            profile=p(), opportunity=o(), difficulty="hard",
+            eligibility_sentences=[
+                Sentence("The applicant is a 501(c)(3), meeting the basic eligibility requirement.",
+                         planted=False, tag="hard-elig-grounded"),
+                Sentence("The 300,000 dollar request falls within the program's stated award ceiling.",
+                         planted=True, tag="hard-ask-exceeds-ceiling"),
+            ],
+        )
+    )
+
+    # ARITHMETIC #2: 300k of an 800k budget is 37.5%, not "a quarter".
+    cases.append(
+        EvalCase(
+            name="hard/arithmetic-budget-fraction",
+            profile=p(), opportunity=o(), difficulty="hard",
+            boilerplate_sentences=[
+                Sentence("The organization serves low-income public-housing residents.",
+                         planted=False, tag="hard-mission-grounded"),
+                Sentence("The requested amount represents roughly a quarter of our annual budget.",
+                         planted=True, tag="hard-fraction-wrong"),
+            ],
+        )
+    )
+
+    # MULTI-HOP: claims the rural set-aside, but profile is urban Brooklyn. The
+    # set-aside fact is in the opp, the urban fact is in the profile — neither
+    # alone is a violation; the claim is only false when you chain them.
+    cases.append(
+        EvalCase(
+            name="hard/multihop-rural-setaside",
+            profile=p(), opportunity=o(), difficulty="hard",
+            eligibility_sentences=[
+                Sentence("The applicant requests support for a rooftop solar installation.",
+                         planted=False, tag="hard-proj-grounded"),
+                Sentence("As a qualifying applicant, the organization is eligible for the program's rural set-aside.",
+                         planted=True, tag="hard-rural-setaside-false"),
+            ],
+        )
+    )
+
+    # TEMPORAL/STATE: profile stage is "planning"; claim asserts active operation.
+    cases.append(
+        EvalCase(
+            name="hard/state-contradiction-operating",
+            profile=p(), opportunity=o(), difficulty="hard",
+            boilerplate_sentences=[
+                Sentence("The project is a 120 kW rooftop solar system in urban Brooklyn.",
+                         planted=False, tag="hard-size-grounded"),
+                Sentence("The system is currently operating and already delivering savings to residents.",
+                         planted=True, tag="hard-operating-vs-planning"),
+            ],
+        )
+    )
+
+    # MULTI-HOP #2: org is 4 years old; claims a track record requiring more years.
+    cases.append(
+        EvalCase(
+            name="hard/multihop-tenure-vs-claim",
+            profile=p(), opportunity=o(), difficulty="hard",
+            eligibility_sentences=[
+                Sentence("The organization is an established 501(c)(3) nonprofit.",
+                         planted=False, tag="hard-501c3-grounded"),
+                Sentence("Over the past decade it has built a sustained track record of solar deployment.",
+                         planted=True, tag="hard-decade-vs-4yr"),
+            ],
+        )
+    )
+
+    # PLAUSIBLE NEGATION (hard negative): claims that SOUND like overreach but are
+    # fully supported by the profile. Tests precision under pressure — does Verify
+    # over-flag strong-sounding-but-true claims? Every sentence here is grounded;
+    # the correct output is zero flags.
+    #
+    # NB: an earlier version of this case included "...as the funder requires,"
+    # which Verify correctly flagged — the opp text never states serving a
+    # disadvantaged community is *required*. That was a mislabeled case (the eval
+    # finding a flaw in its own ground truth), not a Verify error. Fixed to claims
+    # that are unambiguously supported.
+    cases.append(
+        EvalCase(
+            name="hard/precision-trap-supported",
+            profile=p(), opportunity=o(), difficulty="hard",
+            eligibility_sentences=[
+                Sentence("The organization serves a disadvantaged community.",
+                         planted=False, tag="hard-disadvantaged-grounded"),
+                Sentence("Its work focuses on urban public-housing residents in Brooklyn.",
+                         planted=False, tag="hard-urban-grounded"),
+            ],
+        )
+    )
+
+    # PRECISION TRAP #2: a strong, confident eligibility assertion that is
+    # nonetheless fully grounded — 501(c)(3) (profile) + the opp's stated open
+    # eligibility for 501(c)(3)s. Verify must not flag a correct eligibility claim
+    # just because it is assertive and sits among fabrications elsewhere.
+    cases.append(
+        EvalCase(
+            name="hard/precision-trap-eligibility",
+            profile=p(), opportunity=o(), difficulty="hard",
+            eligibility_sentences=[
+                Sentence("As a 501(c)(3) nonprofit, the applicant clearly meets the program's stated eligibility, which is open to 501(c)(3) organizations.",
+                         planted=False, tag="hard-eligibility-grounded"),
+            ],
+        )
+    )
+
+    # UNIT CONFUSION: 120 kW stated; claim inflates to 120 MW (1000x).
+    cases.append(
+        EvalCase(
+            name="hard/unit-confusion-kw-mw",
+            profile=p(), opportunity=o(), difficulty="hard",
+            boilerplate_sentences=[
+                Sentence("The applicant is a 501(c)(3) serving low-income residents.",
+                         planted=False, tag="hard-elig2-grounded"),
+                Sentence("The proposed 120 megawatt installation will serve the surrounding district.",
+                         planted=True, tag="hard-mw-not-kw"),
+            ],
+        )
+    )
+
+    # COST/ASK MISMATCH: project cost is 600k, ask is 300k -> 50% funding gap the
+    # org must cover. Claim says the grant "fully funds" the project. Multi-fact.
+    cases.append(
+        EvalCase(
+            name="hard/fully-funds-false",
+            profile=p(), opportunity=o(), difficulty="hard",
+            eligibility_sentences=[
+                Sentence("The total project cost is 600,000 dollars.",
+                         planted=False, tag="hard-cost-grounded"),
+                Sentence("The requested grant would fully fund the installation.",
+                         planted=True, tag="hard-fully-funds-false"),
+            ],
+        )
+    )
+
+    return cases
+
+
 def load_cases() -> List[EvalCase]:
     """The full labeled set, by difficulty tier:
-    obvious (hand-written + generated) + adversarial (subtle, the hard test)."""
+    obvious (baseline) + adversarial (subtle) + hard (engineered to break Verify)."""
     obvious = _hand_written() + _generated()  # already default difficulty="obvious"
-    return obvious + _adversarial()
+    return obvious + _adversarial() + _hard()
