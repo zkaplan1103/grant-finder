@@ -146,7 +146,8 @@ def test_pipeline_ranks_and_drafts_only_strong(full_profile):
     verifier = ScriptedVerifier([_PASS])
 
     out = run_pipeline(
-        full_profile, opps, matcher, drafter, verifier, strong_fit_threshold=0.6
+        full_profile, opps, matcher, drafter, verifier,
+        strong_fit_threshold=0.6, min_display_score=0,  # show all to test ranking
     )
 
     # Ranked best-first.
@@ -161,6 +162,17 @@ def test_pipeline_ranks_and_drafts_only_strong(full_profile):
 def test_pipeline_marks_sparse_profile(sparse_profile):
     opps = [Opportunity(id="a", source=OpportunitySource.CURATED, title="A")]
     matcher = ScoringMatcher({"a": 0.1})
-    out = run_pipeline(sparse_profile, opps, matcher, FakeDrafter(), ScriptedVerifier([_PASS]))
+    out = run_pipeline(sparse_profile, opps, matcher, FakeDrafter(), ScriptedVerifier([_PASS]), min_display_score=0)
     assert out.profile_sparse is True
     assert out.results[0].match.low_confidence is True
+
+
+def test_pipeline_hides_weak_matches_by_default(full_profile):
+    opps = [
+        Opportunity(id="strong", source=OpportunitySource.CURATED, title="S"),
+        Opportunity(id="weak", source=OpportunitySource.CURATED, title="W"),
+    ]
+    matcher = ScoringMatcher({"strong": 0.85, "weak": 0.2})
+    out = run_pipeline(full_profile, opps, matcher, FakeDrafter(), ScriptedVerifier([_PASS]))
+    # The 0.2 match is below the default 0.5 display floor — hidden as noise.
+    assert [r.opportunity.id for r in out.results] == ["strong"]

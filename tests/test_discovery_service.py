@@ -10,7 +10,6 @@ from app.models import (
     OpportunitySource,
     OrgBasics,
     Profile,
-    ProjectType,
 )
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "curated_fixture.yaml")
@@ -19,7 +18,7 @@ FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "curated_fixture.y
 def _profile():
     return Profile(
         org_basics=OrgBasics(is_501c3=True, annual_budget_usd=200_000, org_age_years=5),
-        project_type=ProjectType.SOLAR,
+        project_type="solar",
         funding_preference=FundingPreference.GRANT,
     )
 

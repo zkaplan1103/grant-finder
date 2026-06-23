@@ -16,13 +16,6 @@ from pydantic import BaseModel, Field
 # --------------------------------------------------------------------------- #
 # Enumerations for the small, fixed-vocabulary required fields.
 # --------------------------------------------------------------------------- #
-class ProjectType(str, Enum):
-    """Broad funding anchor — the category there is no point searching without."""
-
-    SOLAR = "solar"
-    CLEAN_ENERGY = "clean_energy"
-
-
 class FundingPreference(str, Enum):
     GRANT = "grant"
     LOAN = "loan"
@@ -54,7 +47,7 @@ class ProjectSpecifics(BaseModel):
     """Optional — enriches Stage-2 Match scoring. Blank is acceptable."""
 
     project_type: Optional[str] = Field(
-        None, description="e.g. 'rooftop', 'community solar'."
+        None, description="A more specific sub-type, e.g. 'rooftop solar', 'after-school program'."
     )
     size_kw: Optional[float] = Field(None, ge=0, description="System size in kW.")
     estimated_cost_usd: Optional[int] = Field(None, ge=0, description="Estimated project cost.")
@@ -81,7 +74,11 @@ class Profile(BaseModel):
 
     # Required core — drives the Stage-1 search.
     org_basics: OrgBasics
-    project_type: ProjectType
+    project_type: str = Field(
+        ..., min_length=1,
+        description="Funding focus, used verbatim as the grants.gov keyword. "
+        "e.g. 'solar', 'youth literacy', 'food security'.",
+    )
     funding_preference: FundingPreference
 
     # Optional context — enriches Stage-2 scoring.

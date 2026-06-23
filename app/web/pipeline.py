@@ -13,8 +13,8 @@ from app.agents import DrafterAgent, MatchAgent, VerifyAgent
 from app.agents.client import LLMClient, build_default_client
 from app.discovery.grants_gov import GrantsGovClient
 from app.discovery.service import discover
-from app.orchestrator import PipelineResult, run_pipeline
 from app.models import Profile
+from app.orchestrator import PipelineResult, ProgressFn, run_pipeline
 
 
 class PipelineConfigError(Exception):
@@ -34,12 +34,16 @@ def run_full_pipeline(
     llm_client: Optional[LLMClient] = None,
     grants_client: Optional[GrantsGovClient] = None,
     use_live_grants_gov: bool = True,
+    progress: Optional[ProgressFn] = None,
 ) -> FullResult:
     """Discover candidates, then score + draft + verify them.
 
     `llm_client` is injectable for tests. In production it comes from the
     environment key via build_default_client(); without a key we raise a
     sanitized PipelineConfigError (no secrets, no internals).
+
+    `progress(stage, done, total)` is forwarded to the orchestrator so the SSE
+    endpoint can report real progress. Optional.
     """
     client = llm_client or build_default_client()
     if client is None:
@@ -47,6 +51,9 @@ def run_full_pipeline(
             "The matching service is not configured. An administrator must set the "
             "API credentials before running matches."
         )
+
+    if progress is not None:
+        progress("discovery", 0, 1)
 
     own_grants_client = False
     if grants_client is None and use_live_grants_gov:
@@ -59,12 +66,16 @@ def run_full_pipeline(
         if own_grants_client and grants_client is not None:
             grants_client.close()
 
+    if progress is not None:
+        progress("discovery", 1, 1)
+
     pipeline = run_pipeline(
         profile,
         disco.opportunities,
         MatchAgent(client),
         DrafterAgent(client),
         VerifyAgent(client),
+        progress=progress,
     )
     return FullResult(
         pipeline=pipeline,

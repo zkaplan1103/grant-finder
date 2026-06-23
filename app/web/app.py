@@ -1,32 +1,34 @@
-"""FastAPI + Jinja app: one profile form, one results page (PRD section 3).
+"""FastAPI JSON API + static SPA host (PRD section 3, React frontend).
 
-Deliberate states: loading is implicit (synchronous run), empty results, a
-SANITIZED error state that never leaks keys/internals, and a "grants.gov
-unreachable" banner. The pipeline runner is overridable via app.state so tests
-inject a fake and never make a live call.
+`POST /api/match` runs the full pipeline synchronously and returns JSON. The
+built React app (frontend/dist) is served as static files at `/`. Error states
+are SANITIZED: a config error and any unexpected error never leak keys or
+internals (this guarantee is security-critical and must not be relaxed). The
+pipeline runner is overridable via app.state so tests inject a fake and never
+make a live call.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import os
-from typing import Callable, Optional
+import queue
+import threading
+from typing import Any, Callable, Dict
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
 from app.models import Profile
-from app.web.forms import parse_profile_form
+from app.orchestrator import MatchedOpportunity, PipelineResult
 from app.web.pipeline import FullResult, PipelineConfigError, run_full_pipeline
 
-logger = logging.getLogger("solar_grant_navigator.web")
+logger = logging.getLogger("grant_navigator.web")
 
-_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates")
-templates = Jinja2Templates(directory=_TEMPLATES_DIR)
-
-app = FastAPI(title="Solar Grant Navigator")
+app = FastAPI(title="Grant Navigator")
 
 # Default runner is the real pipeline; tests override app.state.run_pipeline.
 RunnerType = Callable[[Profile], FullResult]
@@ -38,58 +40,117 @@ def _runner(request: Request) -> RunnerType:
     return runner or run_full_pipeline
 
 
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse("form.html", {"request": request})
+# --------------------------------------------------------------------------- #
+# Serialization: dataclasses -> JSON. Pydantic models self-serialize.
+# --------------------------------------------------------------------------- #
+def _matched_to_dict(item: MatchedOpportunity) -> Dict[str, Any]:
+    return {
+        "opportunity": item.opportunity.model_dump(mode="json"),
+        "match": item.match.model_dump(mode="json"),
+        "draft": item.draft.model_dump(mode="json") if item.draft else None,
+    }
 
 
-@app.post("/results", response_class=HTMLResponse)
-async def results(request: Request) -> HTMLResponse:
-    form = await request.form()
+def _result_to_dict(result: FullResult) -> Dict[str, Any]:
+    pipeline: PipelineResult = result.pipeline
+    return {
+        "profile_sparse": pipeline.profile_sparse,
+        "grants_gov_ok": result.grants_gov_ok,
+        "grants_gov_message": result.grants_gov_message,
+        "matches": [_matched_to_dict(m) for m in pipeline.results],
+    }
 
-    # 1. Parse + validate the profile. Bad input -> friendly 400, no internals.
+
+# --------------------------------------------------------------------------- #
+@app.post("/api/match")
+async def match(request: Request) -> JSONResponse:
+    # 1. Parse + validate the profile from JSON. Bad input -> friendly 400.
     try:
-        profile = parse_profile_form(dict(form))
-    except (ValidationError, ValueError, KeyError):
-        return templates.TemplateResponse(
-            "form.html",
-            {
-                "request": request,
-                "error": "Please fill in the required fields with valid values.",
-                "form_values": dict(form),
-            },
+        body = await request.json()
+        profile = Profile.model_validate(body)
+    except (ValidationError, ValueError):
+        return JSONResponse(
+            {"error": "Please fill in the required fields with valid values."},
             status_code=400,
         )
 
-    # 2. Run the pipeline. Any failure renders a sanitized error page.
+    # 2. Run the pipeline. Any failure returns a sanitized error.
     try:
         result = _runner(request)(profile)
     except PipelineConfigError as exc:
         # Message is already sanitized (no key/secret).
-        return templates.TemplateResponse(
-            "error.html",
-            {"request": request, "message": str(exc)},
-            status_code=503,
-        )
+        return JSONResponse({"error": str(exc)}, status_code=503)
     except Exception:  # noqa: BLE001 — last-resort guard
         # Never leak the exception text (could contain internals). Log server-side
         # only, with no secret material.
         logger.exception("Pipeline failed")
-        return templates.TemplateResponse(
-            "error.html",
-            {
-                "request": request,
-                "message": "Something went wrong while finding matches. Please try again.",
-            },
+        return JSONResponse(
+            {"error": "Something went wrong while finding matches. Please try again."},
             status_code=500,
         )
 
-    return templates.TemplateResponse(
-        "results.html",
-        {
-            "request": request,
-            "profile": profile,
-            "result": result,
-            "matches": result.pipeline.results,
-        },
-    )
+    return JSONResponse(_result_to_dict(result))
+
+
+def _sse(event: str, data: Dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+@app.post("/api/match/stream")
+async def match_stream(request: Request) -> StreamingResponse:
+    """Same as /api/match but streams progress events (SSE) while it runs.
+
+    The pipeline is blocking, so it runs in a worker thread and pushes
+    (stage, done, total) progress onto a queue; the generator drains the queue
+    to the client. Errors are sanitized exactly like /api/match.
+    """
+    try:
+        body = await request.json()
+        profile = Profile.model_validate(body)
+    except (ValidationError, ValueError):
+        return JSONResponse(
+            {"error": "Please fill in the required fields with valid values."},
+            status_code=400,
+        )
+
+    runner = _runner(request)
+    events: "queue.Queue[tuple[str, Any]]" = queue.Queue()
+
+    def on_progress(stage: str, done: int, total: int) -> None:
+        events.put(("progress", {"stage": stage, "done": done, "total": total}))
+
+    def work() -> None:
+        try:
+            # The fake runner in tests ignores extra kwargs; the real one accepts progress.
+            try:
+                result = runner(profile, progress=on_progress)  # type: ignore[call-arg]
+            except TypeError:
+                result = runner(profile)
+            events.put(("done", _result_to_dict(result)))
+        except PipelineConfigError as exc:
+            events.put(("error", {"error": str(exc)}))
+        except Exception:  # noqa: BLE001
+            logger.exception("Pipeline failed")
+            events.put(("error", {"error": "Something went wrong while finding matches. Please try again."}))
+        finally:
+            events.put(("__end__", None))
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def stream():
+        while True:
+            kind, payload = events.get()
+            if kind == "__end__":
+                break
+            yield _sse(kind, payload)
+
+    return StreamingResponse(stream(), media_type="text/event-stream")
+
+
+# --------------------------------------------------------------------------- #
+# Serve the built SPA at `/` when it exists. Mounted last so /api wins.
+# Absent in CI/tests (no frontend build) — skip cleanly.
+# --------------------------------------------------------------------------- #
+_DIST_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+if os.path.isdir(_DIST_DIR):
+    app.mount("/", StaticFiles(directory=_DIST_DIR, html=True), name="spa")

@@ -14,14 +14,11 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from app.models import FundingPreference, Profile, ProjectType
+from app.models import FundingPreference, Profile
 
 # Always-on: only posted and forecasted opportunities are worth surfacing.
 DEFAULT_OPP_STATUSES = "posted|forecasted"
-DEFAULT_ROWS = 50  # wide net
-
-# grants.gov fundingCategories code: ENERGY covers energy/clean-energy programs.
-FUNDING_CATEGORY_ENERGY = "ENERGY"
+DEFAULT_ROWS = 30  # wide net
 
 # Funding instruments: grants vs. (direct) loans, plus cooperative agreements
 # which behave like grants for a nonprofit applicant.
@@ -34,12 +31,6 @@ INSTRUMENT_LOAN = "DL"  # Direct Loan
 #   25 = Others (e.g. nonprofits without 501(c)(3))
 ELIGIBILITY_501C3 = "12"
 ELIGIBILITY_NONPROFIT_OTHER = "25"
-
-# Keyword seeds per project anchor — wide on purpose.
-_KEYWORDS = {
-    ProjectType.SOLAR: "solar",
-    ProjectType.CLEAN_ENERGY: "clean energy",
-}
 
 
 def _instruments_for(pref: FundingPreference) -> str:
@@ -68,12 +59,13 @@ def profile_to_search_params(profile: Profile) -> Dict[str, Any]:
     and filtering by state here would drop eligible national opportunities. The
     Match agent reasons about geography in Stage 2 instead.
     """
-    keyword = _KEYWORDS[profile.project_type]
+    # ponytail: project_type is the search keyword verbatim. No fundingCategories
+    # filter — keep the net wide across all domains; the Match agent narrows in
+    # Stage 2. Add a category map only if recall proves too noisy.
     return {
-        "keyword": keyword,
+        "keyword": profile.project_type,
         "oppStatuses": DEFAULT_OPP_STATUSES,
         "eligibilities": _eligibilities_for(profile),
-        "fundingCategories": FUNDING_CATEGORY_ENERGY,
         "fundingInstruments": _instruments_for(profile.funding_preference),
         "rows": DEFAULT_ROWS,
     }

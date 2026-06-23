@@ -62,6 +62,15 @@ def test_match_tolerates_fenced_json(full_profile, opportunity):
     assert match.fit_score == 0.5
 
 
+def test_match_truncated_response_degrades(full_profile, opportunity):
+    # The real bug: adaptive thinking ate the token budget, so the API returned
+    # an unbalanced JSON object with stop_reason=max_tokens. Score 0, don't crash.
+    client = FakeLLMClient('{"fit_score": 0.8, "reaso', stop_reason="max_tokens")
+    match = MatchAgent(client).score(full_profile, opportunity)
+    assert match.fit_score == 0.0
+    assert match.low_confidence is True
+
+
 # --------------------------- Drafter agent --------------------------------- #
 def test_drafter_draft_model_and_parsing(full_profile, opportunity, strong_match):
     client = FakeLLMClient(

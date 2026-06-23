@@ -18,8 +18,10 @@ class FakeLLMClient:
     def __init__(
         self,
         replies: Union[str, List[Union[str, Callable[[Dict[str, Any]], str]]]],
+        stop_reason: Optional[str] = None,
     ) -> None:
         self._replies = replies
+        self._stop_reason = stop_reason
         self._index = 0
         self.calls: List[Dict[str, Any]] = []
 
@@ -48,4 +50,4 @@ class FakeLLMClient:
             self._index += 1
 
         text = entry(request) if callable(entry) else entry
-        return LLMResponse(text=text, request=request)
+        return LLMResponse(text=text, request=request, stop_reason=self._stop_reason)

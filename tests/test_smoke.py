@@ -1,6 +1,5 @@
 """Smoke tests: the package imports, and the free suite stays offline."""
 
-import os
 
 
 def test_import_app():

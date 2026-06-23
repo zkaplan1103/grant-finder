@@ -8,16 +8,18 @@ Adaptive thinking is on (reasoning-heavy agent, PRD section 8).
 from __future__ import annotations
 
 from app.agents.client import LLMClient
-from app.agents.parsing import extract_json_object
+from app.agents.parsing import AgentOutputError, extract_json_object
 from app.agents.prompts import cached_system_blocks
 from app.models import Match, Opportunity, Profile
 
 MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 2048
+# Adaptive thinking shares this budget with the answer; an undersized cap truncates
+# the JSON mid-object → AgentOutputError. 8192 wasn't enough once real thinking ran.
+MAX_TOKENS = 16000
 THINKING = {"type": "adaptive"}
 
 SYSTEM_PROMPT = (
-    "You are the Match agent for Solar Grant Navigator. You score how well one "
+    "You are the Match agent for Grant Navigator. You score how well one "
     "funding opportunity fits a nonprofit applicant, for a caseworker who needs "
     "trustworthy, cited reasoning.\n\n"
     "Score true fit: geography, mission, project specifics, and the org's "
@@ -27,6 +29,8 @@ SYSTEM_PROMPT = (
     "add a caveat naming what to fill in for a better match (for example: "
     "'ranked on limited info; add geography for better fit'). Never invent facts "
     "about the org.\n\n"
+    "Write in plain, professional prose. Use no emojis, no markdown, and no "
+    "decorative symbols anywhere in your output.\n"
     "Reply with a single JSON object and nothing else:\n"
     '{"fit_score": <number 0..1>, "reasoning": "<why it fits or not>", '
     '"low_confidence": <true|false>, "caveats": ["<caveat>", ...]}'
@@ -55,11 +59,22 @@ class MatchAgent:
             max_tokens=MAX_TOKENS,
             thinking=THINKING,
         )
-        data = extract_json_object(resp.text)
-        return Match(
-            opportunity_id=opportunity.id,
-            fit_score=float(data["fit_score"]),
-            reasoning=str(data["reasoning"]),
-            low_confidence=bool(data.get("low_confidence", False)),
-            caveats=list(data.get("caveats", []) or []),
-        )
+        # A single malformed/truncated response must not sink the whole run:
+        # score this candidate 0 with a caveat and let ranking drop it.
+        try:
+            data = extract_json_object(resp.text, resp.stop_reason)
+            return Match(
+                opportunity_id=opportunity.id,
+                fit_score=float(data["fit_score"]),
+                reasoning=str(data["reasoning"]),
+                low_confidence=bool(data.get("low_confidence", False)),
+                caveats=list(data.get("caveats", []) or []),
+            )
+        except (AgentOutputError, KeyError, ValueError, TypeError):
+            return Match(
+                opportunity_id=opportunity.id,
+                fit_score=0.0,
+                reasoning="Could not score this opportunity (unreadable model response).",
+                low_confidence=True,
+                caveats=["scoring failed for this candidate; excluded from strong matches"],
+            )

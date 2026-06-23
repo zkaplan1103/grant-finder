@@ -14,7 +14,6 @@ from app.models import (
     OpportunitySource,
     OrgBasics,
     Profile,
-    ProjectType,
     UnsupportedClaim,
 )
 
@@ -29,7 +28,7 @@ def db():
 def _profile() -> Profile:
     return Profile(
         org_basics=OrgBasics(is_501c3=True, annual_budget_usd=300_000, org_age_years=6),
-        project_type=ProjectType.SOLAR,
+        project_type="solar",
         funding_preference=FundingPreference.GRANT,
         geography={"state": "CA"},
     )

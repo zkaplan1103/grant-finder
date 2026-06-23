@@ -1,0 +1,11 @@
+**/__pycache__/
+**/*.pyc
+.git/
+.venv/
+venv/
+frontend/node_modules/
+frontend/dist/
+tests/
+*.md
+eval_report.json
+.pytest_cache/

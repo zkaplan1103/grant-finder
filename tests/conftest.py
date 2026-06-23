@@ -9,7 +9,6 @@ from app.models import (
     OpportunitySource,
     OrgBasics,
     Profile,
-    ProjectType,
 )
 
 
@@ -17,7 +16,7 @@ from app.models import (
 def full_profile() -> Profile:
     return Profile(
         org_basics=OrgBasics(is_501c3=True, annual_budget_usd=500_000, org_age_years=8),
-        project_type=ProjectType.SOLAR,
+        project_type="solar",
         funding_preference=FundingPreference.GRANT,
         geography={"state": "CA", "disadvantaged_community": True},
         project={"project_type": "community solar", "amount_needed_usd": 250_000},
@@ -32,7 +31,7 @@ def full_profile() -> Profile:
 def sparse_profile() -> Profile:
     return Profile(
         org_basics=OrgBasics(is_501c3=True, annual_budget_usd=100_000, org_age_years=2),
-        project_type=ProjectType.SOLAR,
+        project_type="solar",
         funding_preference=FundingPreference.EITHER,
     )
 

@@ -7,13 +7,12 @@ from app.mapper import (
     DEFAULT_ROWS,
     ELIGIBILITY_501C3,
     ELIGIBILITY_NONPROFIT_OTHER,
-    FUNDING_CATEGORY_ENERGY,
     profile_to_search_params,
 )
-from app.models import FundingPreference, OrgBasics, Profile, ProjectType
+from app.models import FundingPreference, OrgBasics, Profile
 
 
-def _profile(is_501c3=True, project=ProjectType.SOLAR, pref=FundingPreference.GRANT) -> Profile:
+def _profile(is_501c3=True, project="solar", pref=FundingPreference.GRANT) -> Profile:
     return Profile(
         org_basics=OrgBasics(is_501c3=is_501c3, annual_budget_usd=200_000, org_age_years=5),
         project_type=project,
@@ -21,11 +20,15 @@ def _profile(is_501c3=True, project=ProjectType.SOLAR, pref=FundingPreference.GR
     )
 
 
-def test_always_on_statuses_and_category_and_rows():
+def test_always_on_statuses_and_rows():
     p = profile_to_search_params(_profile())
     assert p["oppStatuses"] == DEFAULT_OPP_STATUSES == "posted|forecasted"
-    assert p["fundingCategories"] == FUNDING_CATEGORY_ENERGY == "ENERGY"
     assert p["rows"] == DEFAULT_ROWS
+
+
+def test_no_funding_category_filter():
+    # Generalized beyond energy: no domain-locking category filter.
+    assert "fundingCategories" not in profile_to_search_params(_profile())
 
 
 def test_501c3_eligibility_mapping():
@@ -38,11 +41,11 @@ def test_non_501c3_eligibility_mapping():
     assert p["eligibilities"] == ELIGIBILITY_NONPROFIT_OTHER
 
 
-def test_keyword_per_project_anchor():
-    assert profile_to_search_params(_profile(project=ProjectType.SOLAR))["keyword"] == "solar"
+def test_keyword_is_verbatim_across_domains():
+    assert profile_to_search_params(_profile(project="solar"))["keyword"] == "solar"
     assert (
-        profile_to_search_params(_profile(project=ProjectType.CLEAN_ENERGY))["keyword"]
-        == "clean energy"
+        profile_to_search_params(_profile(project="youth literacy"))["keyword"]
+        == "youth literacy"
     )
 
 
@@ -67,9 +70,8 @@ def test_full_param_dict_for_canonical_profile():
         "keyword": "solar",
         "oppStatuses": "posted|forecasted",
         "eligibilities": "12|25",
-        "fundingCategories": "ENERGY",
         "fundingInstruments": "G|CA",
-        "rows": 50,
+        "rows": 30,
     }
 
 
@@ -79,7 +81,7 @@ def test_geography_not_used_as_hard_filter():
     # (Cooperative Agreement), and assert no param *value* carries the state.
     p = Profile(
         org_basics=OrgBasics(is_501c3=True, annual_budget_usd=1, org_age_years=1),
-        project_type=ProjectType.SOLAR,
+        project_type="solar",
         funding_preference=FundingPreference.GRANT,
         geography={"state": "TX"},
     )

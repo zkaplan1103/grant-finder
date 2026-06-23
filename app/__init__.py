@@ -1,4 +1,4 @@
-"""Solar Grant Navigator — a multi-agent funding-match system for solar nonprofits.
+"""Grant Navigator — a multi-agent funding-match system for nonprofits.
 
 Package layout:
     app.models        Pydantic contract: Profile, Opportunity, Match, Draft, VerifyResult

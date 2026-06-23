@@ -18,10 +18,12 @@ from app.agents.prompts import cached_system_blocks
 from app.models import Draft, DraftStatus, Match, Opportunity, Profile, UnsupportedClaim
 
 MODEL = "claude-sonnet-4-6"
-MAX_TOKENS = 3072
+# Two prose fields (eligibility summary + boilerplate) wrapped in JSON. 3072 is
+# too tight — a long boilerplate truncates the JSON mid-string (AgentOutputError).
+MAX_TOKENS = 8192
 
 SYSTEM_PROMPT = (
-    "You are the Drafter agent for Solar Grant Navigator. You write application "
+    "You are the Drafter agent for Grant Navigator. You write application "
     "boilerplate for a nonprofit applying to a funding opportunity: an "
     "eligibility summary and reusable boilerplate (org description, need "
     "statement).\n\n"
@@ -31,6 +33,8 @@ SYSTEM_PROMPT = (
     "eligibility claim can get an org barred. When the profile lacks something an "
     "application would need, write it as a placeholder the caseworker must fill, "
     "not as a fact.\n\n"
+    "Write in plain, professional prose suitable for a grant application. Use no "
+    "emojis, no markdown, and no decorative symbols anywhere in your output.\n"
     "Reply with a single JSON object and nothing else:\n"
     '{"eligibility_summary": "<text>", "boilerplate": "<text>"}'
 )
@@ -67,7 +71,7 @@ class DrafterAgent:
         resp = self._client.complete(
             model=MODEL, system=system, messages=messages, max_tokens=MAX_TOKENS
         )
-        data = extract_json_object(resp.text)
+        data = extract_json_object(resp.text, resp.stop_reason)
         return Draft(
             opportunity_id=opportunity.id,
             eligibility_summary=str(data["eligibility_summary"]),
@@ -98,7 +102,7 @@ class DrafterAgent:
         resp = self._client.complete(
             model=MODEL, system=system, messages=messages, max_tokens=MAX_TOKENS
         )
-        data = extract_json_object(resp.text)
+        data = extract_json_object(resp.text, resp.stop_reason)
         return Draft(
             opportunity_id=opportunity.id,
             eligibility_summary=str(data["eligibility_summary"]),

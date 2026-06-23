@@ -15,7 +15,11 @@ class AgentOutputError(ValueError):
     """Raised when the model output cannot be parsed into the expected shape."""
 
 
-def extract_json_object(text: str) -> Dict[str, Any]:
+def extract_json_object(text: str, stop_reason: str | None = None) -> Dict[str, Any]:
+    # A truncated response (hit max_tokens) has an unbalanced object; say so plainly
+    # instead of the misleading generic "Unbalanced JSON" at the end.
+    if stop_reason == "max_tokens":
+        raise AgentOutputError("Model output truncated at max_tokens; raise max_tokens.")
     s = text.strip()
 
     # Strip a fenced ```json ... ``` or ``` ... ``` wrapper if present.

@@ -107,6 +107,13 @@ class GrantsGovClient:
 
     # ------------------------------------------------------------------ #
     @staticmethod
+    def _aln(value: Any) -> Optional[str]:
+        # Search2 returns ALN/CFDA as a list (e.g. ['43.001']) or a str; normalize.
+        if isinstance(value, list):
+            return ", ".join(str(v) for v in value) or None
+        return str(value) if value else None
+
+    @staticmethod
     def _normalize_hit(hit: Dict[str, Any]) -> Opportunity:
         opp_id = str(hit.get("id") or hit.get("number") or hit.get("oppId") or "")
         return Opportunity(
@@ -117,7 +124,9 @@ class GrantsGovClient:
             url=(f"https://www.grants.gov/search-results-detail/{opp_id}" if opp_id else None),
             status=hit.get("oppStatus"),
             close_date=hit.get("closeDate"),
-            aln=hit.get("alnist") or hit.get("aln") or hit.get("cfdaList"),
+            aln=GrantsGovClient._aln(
+                hit.get("alnist") or hit.get("aln") or hit.get("cfdaList")
+            ),
         )
 
     @staticmethod
@@ -131,7 +140,7 @@ class GrantsGovClient:
             url=(f"https://www.grants.gov/search-results-detail/{opp_id}" if opp_id else None),
             status=payload.get("opportunityStatus"),
             close_date=synopsis.get("responseDate"),
-            aln=payload.get("cfdaList") if isinstance(payload.get("cfdaList"), str) else None,
+            aln=GrantsGovClient._aln(payload.get("cfdaList")),
             eligibility_notes=synopsis.get("applicantEligibilityDesc")
             or synopsis.get("applicantTypes"),
             description=synopsis.get("synopsisDesc") or synopsis.get("description"),

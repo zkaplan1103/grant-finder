@@ -26,6 +26,7 @@ class LLMResponse:
 
     text: str
     request: Dict[str, Any] = field(default_factory=dict)
+    stop_reason: Optional[str] = None
 
 
 class LLMClient(Protocol):
@@ -82,7 +83,7 @@ class AnthropicLLMClient:
         text = "".join(
             getattr(block, "text", "") for block in resp.content if getattr(block, "type", "") == "text"
         )
-        return LLMResponse(text=text, request=kwargs)
+        return LLMResponse(text=text, request=kwargs, stop_reason=getattr(resp, "stop_reason", None))
 
 
 def build_default_client() -> Optional[LLMClient]:

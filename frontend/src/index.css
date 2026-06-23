@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+/* ===================================================================
+   GRANT NAVIGATOR — Monochrome Brutalist design system
+   Pure grayscale. Depth via border weight, never shadow/gradient/glass.
+   Space Grotesk = human voice. JetBrains Mono = system voice.
+   =================================================================== */
+
+:root {
+  /* Light (default) — black ink on warm paper */
+  --bg: #ffffff;
+  --paper: #f5f5f0;          /* warm off-white, references concrete/print */
+  --surface: #fafaf8;
+  --surface-2: #ebebe6;
+  --ink: #0a0a0a;
+  --ink-on: #ffffff;
+  --text: #0a0a0a;
+  --muted: #525252;
+  --faint: #d4d4d0;
+  --hairline: #1a1a1a;       /* heavy structural border color */
+  --error: #b91c1c;
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --paper: #0f0f0f;
+  --surface: #171717;
+  --surface-2: #262626;
+  --ink: #f5f5f5;
+  --ink-on: #0a0a0a;
+  --text: #f5f5f5;
+  --muted: #a3a3a3;
+  --faint: #404040;
+  --hairline: #e5e5e5;
+  --error: #fca5a5;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--text);
+  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s var(--ease-spring), color 0.3s var(--ease-spring);
+}
+
+.mono {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Structural label — the "system voice" */
+.label {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text);
+}
+
+@layer components {
+  /* ---- Surfaces: flat, hard-edged, bordered ---- */
+  .panel {
+    background: var(--surface);
+    border: 2px solid var(--hairline);
+    border-radius: 0;
+  }
+
+  /* ---- Inputs / selects ---- */
+  .field-input {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    color: var(--text);
+    background: var(--bg);
+    border: 2px solid var(--faint);
+    border-radius: 0;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1rem;
+    transition: border-color 0.12s var(--ease-spring);
+  }
+  .field-input::placeholder { color: var(--muted); opacity: 0.7; }
+  .field-input:hover { border-color: var(--muted); }
+  .field-input:focus {
+    outline: 3px solid var(--ink);
+    outline-offset: 1px;
+    border-color: var(--ink);
+  }
+  textarea.field-input { resize: vertical; }
+
+  select.field-input {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.4rem;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23525252' d='M6 8 0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+  }
+
+  /* ---- Buttons: the STAMP PRESS ---- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+    padding: 0.75rem 1.4rem;
+    border-radius: 0;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    border: 2px solid var(--ink);
+    transition: transform 0.13s var(--ease-spring), box-shadow 0.13s var(--ease-spring),
+                background 0.1s linear, color 0.1s linear, opacity 0.15s;
+    user-select: none;
+  }
+  .btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none !important; }
+
+  /* Primary: solid ink + hard offset shadow that collapses on press */
+  .btn-primary {
+    background: var(--ink);
+    color: var(--ink-on);
+    box-shadow: 4px 4px 0 var(--hairline);
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--muted); border-color: var(--muted); }
+  .btn-primary:active:not(:disabled) {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 var(--hairline);
+  }
+
+  /* Ghost: outline, lighter stamp */
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    box-shadow: 3px 3px 0 var(--faint);
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--surface-2); }
+  .btn-ghost:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--faint);
+  }
+
+  /* Icon-only square button (theme toggle) */
+  .btn-icon {
+    width: 40px; height: 40px; padding: 0;
+    border: 2px solid var(--hairline);
+    background: var(--bg);
+    color: var(--text);
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border-radius: 0;
+    transition: transform 0.1s var(--ease-spring), background 0.1s;
+  }
+  .btn-icon:hover { background: var(--surface-2); }
+  .btn-icon:active { transform: translateY(2px); }
+  .btn-icon:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+  /* ---- Chips: type-or-pick presets, instant inversion ---- */
+  .chip {
+    padding: 0.32rem 0.7rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.72rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 2px solid var(--faint);
+    border-radius: 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: transform 0.08s var(--ease-spring);
+  }
+  .chip:hover { border-color: var(--ink); color: var(--text); }
+  .chip:active { transform: scale(0.95); }
+  .chip[data-active="true"] {
+    background: var(--ink); color: var(--ink-on); border-color: var(--ink);
+  }
+
+  /* ---- Status badge: icon + text + border weight, no fill color ---- */
+  .badge {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.18rem 0.5rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.68rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 2px solid var(--faint);
+    border-radius: 0;
+    color: var(--muted);
+  }
+  .badge[data-weight="heavy"] { border-color: var(--hairline); border-width: 3px; color: var(--text); }
+}
+
+/* ---- Step transitions (directional) ---- */
+@keyframes step-in-fwd { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes step-in-back { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.anim-fwd  { animation: step-in-fwd 0.25s var(--ease-spring) both; }
+.anim-back { animation: step-in-back 0.25s var(--ease-spring) both; }
+.animate-in { animation: fade-up 0.3s var(--ease-spring) both; }
+
+/* Single-row chip scroller: thin, unobtrusive scrollbar */
+.chip-row { scrollbar-width: thin; }
+.chip-row::-webkit-scrollbar { height: 4px; }
+.chip-row::-webkit-scrollbar-thumb { background: var(--faint); }
+
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+.cursor-blink { animation: blink 0.8s step-end infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

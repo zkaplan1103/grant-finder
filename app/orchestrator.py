@@ -18,7 +18,7 @@ silent failure).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from app.agents.drafter import DrafterAgent
 from app.agents.match import MatchAgent
@@ -30,6 +30,10 @@ from app.models import (
     Opportunity,
     Profile,
 )
+
+# Optional progress sink: stage name + completed/total counts. Used by the SSE
+# endpoint to report real progress; None in tests and non-streaming callers.
+ProgressFn = Callable[[str, int, int], None]
 
 DEFAULT_MAX_REVISIONS = 3
 
@@ -101,19 +105,31 @@ def run_pipeline(
     max_revisions: int = DEFAULT_MAX_REVISIONS,
     strong_fit_threshold: float = 0.6,
     draft_top_n: int = 5,
+    min_display_score: float = 0.5,
+    progress: Optional[ProgressFn] = None,
 ) -> PipelineResult:
     """Score & rank every opportunity, then draft+verify the strong ones.
 
     Only matches at or above `strong_fit_threshold` (capped at `draft_top_n`) get
     boilerplate — drafting every candidate would waste model calls on poor fits.
+
+    `progress(stage, done, total)` is called as work completes so the SSE endpoint
+    can report real progress. Optional — None means no reporting.
     """
+    def report(stage: str, done: int, total: int) -> None:
+        if progress is not None:
+            progress(stage, done, total)
+
     scored: List[MatchedOpportunity] = []
-    for opp in opportunities:
+    total = len(opportunities)
+    for i, opp in enumerate(opportunities, 1):
         match = match_agent.score(profile, opp)
         scored.append(MatchedOpportunity(opportunity=opp, match=match))
+        report("match", i, total)
 
     scored.sort(key=lambda m: m.match.fit_score, reverse=True)
 
+    to_draft = [m for m in scored if m.match.fit_score >= strong_fit_threshold][:draft_top_n]
     drafted = 0
     for item in scored:
         if drafted >= draft_top_n:
@@ -128,5 +144,9 @@ def run_pipeline(
                 max_revisions=max_revisions,
             )
             drafted += 1
+            report("draft", drafted, len(to_draft))
 
-    return PipelineResult(profile_sparse=profile.is_sparse(), results=scored)
+    # Hide weak fits from the result list (a 0.2 match is noise to a caseworker).
+    # min_display_score=0 shows everything for users who want the full ranking.
+    visible = [m for m in scored if m.match.fit_score >= min_display_score]
+    return PipelineResult(profile_sparse=profile.is_sparse(), results=visible)

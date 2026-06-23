@@ -14,11 +14,13 @@ from app.agents.prompts import cached_system_blocks
 from app.models import Draft, Opportunity, Profile, UnsupportedClaim, VerifyResult
 
 MODEL = "claude-opus-4-8"
-MAX_TOKENS = 2048
+# Adaptive thinking shares this budget with the answer; an undersized cap truncates
+# the JSON. Opus reasons more than Sonnet here, so give it generous headroom.
+MAX_TOKENS = 16000
 THINKING = {"type": "adaptive"}
 
 SYSTEM_PROMPT = (
-    "You are the Verify agent for Solar Grant Navigator — the trust guarantee. "
+    "You are the Verify agent for Grant Navigator — the trust guarantee. "
     "You check a drafted application for any factual claim that is NOT supported "
     "by the nonprofit profile or the funding opportunity's stated requirements "
     "above.\n\n"
@@ -29,6 +31,8 @@ SYSTEM_PROMPT = (
     "the exact claim text and why it is unsupported, so the Drafter can fix it. "
     "Err toward catching unsupported eligibility claims — a fabricated one can get "
     "an org barred.\n\n"
+    "Write in plain, professional prose. Use no emojis, no markdown, and no "
+    "decorative symbols anywhere in your output.\n"
     "Reply with a single JSON object and nothing else:\n"
     '{"passed": <true|false>, "failures": [{"claim": "<text>", "reason": "<why>"}, ...]}'
     "\nIf nothing is unsupported, return passed true with an empty failures list."
@@ -59,7 +63,7 @@ class VerifyAgent:
             max_tokens=MAX_TOKENS,
             thinking=THINKING,
         )
-        data = extract_json_object(resp.text)
+        data = extract_json_object(resp.text, resp.stop_reason)
         failures = [
             UnsupportedClaim(claim=str(f["claim"]), reason=str(f["reason"]))
             for f in (data.get("failures") or [])
