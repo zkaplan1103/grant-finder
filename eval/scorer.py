@@ -45,6 +45,7 @@ def _flag_matches_sentence(flag: UnsupportedClaim, sentence: Sentence) -> bool:
 @dataclass
 class CaseScore:
     name: str
+    difficulty: str = "obvious"
     tp: int = 0
     fp: int = 0
     fn: int = 0
@@ -89,10 +90,15 @@ class Report:
         p, r = self.precision, self.recall
         return 2 * p * r / (p + r) if (p + r) else 0.0
 
+    def subset(self, difficulty: str) -> "Report":
+        """A Report over just the cases of one difficulty tier — reuses every
+        metric property above, so per-tier scoring needs no duplicated math."""
+        return Report(cases=[c for c in self.cases if c.difficulty == difficulty])
+
 
 def score_case(case: EvalCase, flags: List[UnsupportedClaim]) -> CaseScore:
     """Score one case given the Verify agent's flagged claims."""
-    cs = CaseScore(name=case.name)
+    cs = CaseScore(name=case.name, difficulty=case.difficulty)
     matched_flag_idx: set[int] = set()
 
     for sent in case.all_sentences():

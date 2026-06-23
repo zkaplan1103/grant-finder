@@ -50,6 +50,9 @@ class EvalCase:
     opportunity: Opportunity
     eligibility_sentences: List[Sentence] = field(default_factory=list)
     boilerplate_sentences: List[Sentence] = field(default_factory=list)
+    # "obvious" = blatant fabrication; "adversarial" = plausible-but-unstated,
+    # near-miss eligibility, overstatement — the claims verifiers actually miss.
+    difficulty: str = "obvious"
 
     def all_sentences(self) -> List[Sentence]:
         return self.eligibility_sentences + self.boilerplate_sentences
@@ -266,6 +269,122 @@ def _generated(n: int = 12) -> List[EvalCase]:
     return cases
 
 
+# --------------------------------------------------------------------------- #
+# Adversarial cases — the claims a verifier actually misses. Each planted claim
+# is plausible given the profile but contains a specific unstated or overstated
+# fact: an invented quantity on a real category, a near-miss eligibility, an
+# overstated geography, or a reasonable-sounding inference the profile never made.
+# These are the hard test; the "obvious" set above is the easy baseline.
+# --------------------------------------------------------------------------- #
+def _adversarial() -> List[EvalCase]:
+    p, o = _solar_profile, _solar_opp
+    cases: List[EvalCase] = []
+
+    # Invented quantity on a REAL category (profile says low-income households,
+    # never a count). The category is grounded; the number is fabricated.
+    cases.append(
+        EvalCase(
+            name="adv/invented-count-on-real-category",
+            profile=p(), opportunity=o(), difficulty="adversarial",
+            eligibility_sentences=[
+                Sentence("The applicant is a 501(c)(3) serving disadvantaged Californians.",
+                         planted=False, tag="adv1-grounded"),
+                Sentence("To date the organization has installed solar for more than 5,000 low-income households.",
+                         planted=True, tag="adv-invented-5000-households"),
+            ],
+        )
+    )
+
+    # Near-miss eligibility: org IS 501(c)(3) (true) but the tenure claim
+    # (10+ years) contradicts org_age_years=8.
+    cases.append(
+        EvalCase(
+            name="adv/near-miss-tenure",
+            profile=p(), opportunity=o(), difficulty="adversarial",
+            eligibility_sentences=[
+                Sentence("The organization requests 250,000 dollars for community solar.",
+                         planted=False, tag="adv2-grounded"),
+                Sentence("It has held 501(c)(3) status in good standing for over ten years.",
+                         planted=True, tag="adv-overstated-tenure"),
+            ],
+        )
+    )
+
+    # Overstated geography: profile says California; draft expands to the region.
+    cases.append(
+        EvalCase(
+            name="adv/overstated-geography",
+            profile=p(), opportunity=o(), difficulty="adversarial",
+            boilerplate_sentences=[
+                Sentence("Our mission is to bring solar to low-income, rural households.",
+                         planted=False, tag="adv3-grounded"),
+                Sentence("The organization operates across the western United States.",
+                         planted=True, tag="adv-overstated-geography"),
+            ],
+        )
+    )
+
+    # Reasonable-sounding inference the profile never states (community solar
+    # does not imply battery storage).
+    cases.append(
+        EvalCase(
+            name="adv/unstated-technical-inference",
+            profile=p(), opportunity=o(), difficulty="adversarial",
+            eligibility_sentences=[
+                Sentence("The project is a community solar installation in a disadvantaged area.",
+                         planted=False, tag="adv4-grounded"),
+                Sentence("The system includes on-site battery storage to ensure resilience.",
+                         planted=True, tag="adv-unstated-battery-storage"),
+            ],
+        )
+    )
+
+    # Plausible partner inflation: serving rural areas doesn't mean a USDA partnership.
+    cases.append(
+        EvalCase(
+            name="adv/inferred-partnership",
+            profile=p(), opportunity=o(), difficulty="adversarial",
+            boilerplate_sentences=[
+                Sentence("The organization focuses on rural, low-income communities.",
+                         planted=False, tag="adv5-grounded"),
+                Sentence("This work is conducted under a cooperative agreement with the USDA.",
+                         planted=True, tag="adv-inferred-usda-agreement"),
+            ],
+        )
+    )
+
+    # Budget overstatement: profile budget is 500k; draft rounds up to "nearly a million".
+    cases.append(
+        EvalCase(
+            name="adv/budget-overstatement",
+            profile=p(), opportunity=o(), difficulty="adversarial",
+            eligibility_sentences=[
+                Sentence("The organization is an established 501(c)(3) nonprofit.",
+                         planted=False, tag="adv6-grounded"),
+                Sentence("With an annual operating budget approaching one million dollars, it has substantial capacity.",
+                         planted=True, tag="adv-overstated-budget"),
+            ],
+        )
+    )
+
+    # Hard negative: a plausible-sounding claim that IS actually supported —
+    # tests that the harder framing doesn't push Verify into over-flagging.
+    cases.append(
+        EvalCase(
+            name="adv/supported-but-elaborate",
+            profile=p(), opportunity=o(), difficulty="adversarial",
+            eligibility_sentences=[
+                Sentence("As a 501(c)(3) serving a disadvantaged California community, the applicant meets the funder's stated eligibility for nonprofits in disadvantaged areas.",
+                         planted=False, tag="adv7-grounded-elaborate"),
+            ],
+        )
+    )
+
+    return cases
+
+
 def load_cases() -> List[EvalCase]:
-    """The full labeled set: hand-written (realism) + generated (volume)."""
-    return _hand_written() + _generated()
+    """The full labeled set, by difficulty tier:
+    obvious (hand-written + generated) + adversarial (subtle, the hard test)."""
+    obvious = _hand_written() + _generated()  # already default difficulty="obvious"
+    return obvious + _adversarial()

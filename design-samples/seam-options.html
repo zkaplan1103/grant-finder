@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grant Navigator — Seam Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#f5f5f0; --bg:#fff; --ink:#0a0a0a; --ink-on:#fff;
+    --text:#0a0a0a; --muted:#525252; --faint:#d4d4d0; --hairline:#1a1a1a;
+    --line:#e5e5e1;                       /* 1px data-zone hairline */
+    --ok:#15803d; --ok-bg:#f0fdf4; --warn:#b45309; --warn-bg:#fffbeb; --err:#b91c1c; --err-bg:#fef2f2;
+    --sans:"Space Grotesk",system-ui,sans-serif; --mono:"JetBrains Mono",monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .label{font-family:var(--mono);font-size:.7rem;font-weight:500;text-transform:uppercase;letter-spacing:.09em}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+  @media(max-width:880px){.cols{grid-template-columns:1fr}}
+  h1{font-size:1.4rem;letter-spacing:-.02em;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:.9rem;margin:0 0 24px}
+  .opt-head{border:2px solid var(--hairline);background:var(--ink);color:var(--ink-on);padding:10px 14px;font-family:var(--mono);font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.8rem}
+  .opt-note{font-size:.82rem;color:var(--muted);margin:10px 2px 16px}
+
+  /* ---- shared bits ---- */
+  .score{font-family:var(--mono);font-weight:700;font-size:1.5rem}
+  .reason{font-size:.92rem;margin:.5rem 0}
+  .caveats{font-size:.82rem;color:var(--muted);margin:.25rem 0 0;padding-left:1.1rem}
+  .meta{display:flex;gap:1rem;font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-top:.5rem}
+  .badge{display:inline-flex;align-items:center;gap:.3rem;font-family:var(--mono);font-size:.68rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;padding:.18rem .5rem;border:1px solid var(--line)}
+  .b-ok{color:var(--ok);border-color:var(--ok);background:var(--ok-bg)}
+  .b-warn{color:var(--warn);border-color:var(--warn);background:var(--warn-bg)}
+  .b-draft{color:var(--muted)}
+  .trail{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--line)}
+  .claims{margin-top:.7rem;padding-left:.75rem;border-left:3px solid var(--err)}
+  .claim{font-size:.86rem;margin-bottom:.4rem}
+  .claim .why{color:var(--muted);font-size:.8rem}
+  .rank{font-family:var(--mono);font-size:.62rem;letter-spacing:.09em;color:var(--muted);text-transform:uppercase}
+  .ttl{font-weight:600;font-size:1.04rem;letter-spacing:-.01em;margin:.15rem 0 0}
+  .agency{color:var(--muted);font-size:.85rem}
+
+  /* ================= OPTION A: shell=chrome only. Data cards fully technical (1px gray, soft radius) ============== */
+  .A .stack{display:grid;gap:12px}
+  .A .card{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:18px 20px}
+  .A .card.low{opacity:.62}
+  .A .card.needs{border-left:3px solid var(--warn)}
+  .A .row{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+
+  /* ================= OPTION B: shell+frame. Card OUTER frame brutalist (2px black, square, mono rank header bar);
+                         trust signals INSIDE use semantic color + 1px ============== */
+  .B .stack{display:grid;gap:0;border-top:2px solid var(--hairline)}
+  .B .card{background:var(--bg);border:2px solid var(--hairline);border-top:0;padding:0}
+  .B .card.low{opacity:.62}
+  .B .cardhead{display:flex;justify-content:space-between;align-items:center;background:var(--paper);border-bottom:2px solid var(--hairline);padding:8px 14px}
+  .B .cardbody{padding:16px 18px}
+  .B .cardbody.needs{border-left:3px solid var(--warn)}
+  .B .row{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Results view — two seam options</h1>
+  <p class="sub">Same data, same trust signals. Difference is only WHERE the brutalist shell stops and the calmer technical data zone begins.</p>
+
+  <div class="cols">
+
+    <!-- ============ OPTION A ============ -->
+    <div class="A">
+      <div class="opt-head">Option A — Shell = chrome only</div>
+      <p class="opt-note">Brutalist lives in the header/wizard/buttons (the frame around this). Every result card is fully technical: 1px gray hairline, 8px radius, semantic color. Cleanest seam, most "Linear-like" data zone.</p>
+      <div class="stack">
+
+        <div class="card">
+          <div class="row">
+            <div>
+              <div class="rank">Result 01</div>
+              <div class="ttl">Community Solar for Low-Income Households</div>
+              <div class="agency">U.S. Department of Energy</div>
+            </div>
+            <div class="score" style="color:var(--ok)">92%</div>
+          </div>
+          <p class="reason">Strong alignment with your solar focus and 501(c)(3) status. Award range fits your stated need; geography matches a national program.</p>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem">
+            <span class="badge">grants.gov</span>
+            <span class="badge b-ok">&#10003; Verified</span>
+          </div>
+          <div class="meta"><span>AWARD: $250K</span><span>DEADLINE: 2026-09-15</span></div>
+          <div class="trail">Checked 8 claims against your profile + grant requirements · 1 revision pass · 0 unsupported</div>
+        </div>
+
+        <div class="card needs">
+          <div class="row">
+            <div>
+              <div class="rank">Result 02</div>
+              <div class="ttl">Honnold Foundation Community Solar</div>
+              <div class="agency">Honnold Foundation · curated</div>
+            </div>
+            <div class="score" style="color:var(--warn)">78%</div>
+          </div>
+          <p class="reason">Good mission fit for equity-focused solar. Some application claims could not be substantiated from your profile.</p>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem">
+            <span class="badge">curated</span>
+            <span class="badge b-warn">&#9650; Needs Review</span>
+          </div>
+          <div class="claims">
+            <div class="label" style="font-size:.64rem;margin-bottom:.3rem">Flagged — unsupported claims</div>
+            <div class="claim">"Organization serves 3,000 tribal households."<div class="why">Profile does not mention tribal populations or that figure.</div></div>
+          </div>
+          <div class="trail">Attempted 3 revision passes · 1 claim remains unresolved</div>
+        </div>
+
+        <div class="card low">
+          <div class="row">
+            <div>
+              <div class="rank">Result 03</div>
+              <div class="ttl">Rural Energy for America Program (REAP)</div>
+              <div class="agency">USDA Rural Development</div>
+            </div>
+            <div class="score">54% <span class="mono" style="font-size:.7rem;color:var(--muted)">(low confidence)</span></div>
+          </div>
+          <p class="reason">Possible fit, but ranked on limited information. Add geography and project specifics for a confident score.</p>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem">
+            <span class="badge">grants.gov</span>
+            <span class="badge b-draft">Draft</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ============ OPTION B ============ -->
+    <div class="B">
+      <div class="opt-head">Option B — Shell + card frame</div>
+      <p class="opt-note">Brutalist extends into each card's OUTER frame: 2px black border, square, shared-border stack, a mono rank bar across the top. Trust signals INSIDE the card use semantic color + 1px lines. More visual continuity with the shell.</p>
+      <div class="stack">
+
+        <div class="card">
+          <div class="cardhead"><span class="rank">Result 01</span><span class="score" style="color:var(--ok)">92%</span></div>
+          <div class="cardbody">
+            <div class="ttl">Community Solar for Low-Income Households</div>
+            <div class="agency">U.S. Department of Energy</div>
+            <p class="reason">Strong alignment with your solar focus and 501(c)(3) status. Award range fits your stated need; geography matches a national program.</p>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem">
+              <span class="badge">grants.gov</span>
+              <span class="badge b-ok">&#10003; Verified</span>
+            </div>
+            <div class="meta"><span>AWARD: $250K</span><span>DEADLINE: 2026-09-15</span></div>
+            <div class="trail">Checked 8 claims against your profile + grant requirements · 1 revision pass · 0 unsupported</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="cardhead"><span class="rank">Result 02</span><span class="score" style="color:var(--warn)">78%</span></div>
+          <div class="cardbody needs">
+            <div class="ttl">Honnold Foundation Community Solar</div>
+            <div class="agency">Honnold Foundation · curated</div>
+            <p class="reason">Good mission fit for equity-focused solar. Some application claims could not be substantiated from your profile.</p>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem">
+              <span class="badge">curated</span>
+              <span class="badge b-warn">&#9650; Needs Review</span>
+            </div>
+            <div class="claims">
+              <div class="label" style="font-size:.64rem;margin-bottom:.3rem">Flagged — unsupported claims</div>
+              <div class="claim">"Organization serves 3,000 tribal households."<div class="why">Profile does not mention tribal populations or that figure.</div></div>
+            </div>
+            <div class="trail">Attempted 3 revision passes · 1 claim remains unresolved</div>
+          </div>
+        </div>
+
+        <div class="card low">
+          <div class="cardhead"><span class="rank">Result 03</span><span class="score">54% <span class="mono" style="font-size:.7rem;color:var(--muted)">(low conf.)</span></span></div>
+          <div class="cardbody">
+            <div class="ttl">Rural Energy for America Program (REAP)</div>
+            <div class="agency">USDA Rural Development</div>
+            <p class="reason">Possible fit, but ranked on limited information. Add geography and project specifics for a confident score.</p>
+            <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem">
+              <span class="badge">grants.gov</span>
+              <span class="badge b-draft">Draft</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

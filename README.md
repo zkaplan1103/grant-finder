@@ -114,12 +114,10 @@ Anyone can wire up agents that *call each other*. The hard, interview-worthy
 question is: **does the safety check actually catch hallucinations, and how do
 you know?** So the Verify agent has its own evaluation harness.
 
-`eval/` holds a labeled set of drafts (`eval/cases.py`) — part hand-written for
-realism, part generated for volume — where every sentence is tagged as either
-**grounded** (supported by the profile/opportunity) or **planted** (a fabricated
-claim Verify *should* flag: an invented award amount, a geography the org isn't
-in, an eligibility it doesn't hold). The runner scores Verify's flags against
-ground truth into a confusion matrix:
+`eval/` holds a labeled set of drafts (`eval/cases.py`) where every sentence is
+tagged as either **grounded** (supported by the profile/opportunity) or
+**planted** (a claim Verify *should* flag). The runner scores Verify's flags
+against ground truth into a confusion matrix:
 
 ```bash
 ANTHROPIC_API_KEY=sk-... python -m eval.run --json eval_report.json
@@ -132,6 +130,40 @@ ANTHROPIC_API_KEY=sk-... python -m eval.run --json eval_report.json
   grounded text).
 - `--min-recall 0.9` makes the eval a **gate** (non-zero exit below threshold),
   so a prompt change that regresses detection fails CI.
+
+### Cases are split by difficulty — the split is the point
+
+A single accuracy number is easy to game with soft test cases, so cases carry a
+`difficulty` tier and the harness reports each separately:
+
+- **`obvious`** (16 cases) — blatant fabrications: a $2M prize that's nowhere in
+  the profile, a headquarters in the wrong state. The easy baseline.
+- **`adversarial`** (7 cases) — the claims verifiers actually miss: an invented
+  count on a *real* category ("installed solar for 5,000 households" when the
+  profile names the population but no number), a near-miss eligibility ("501(c)(3)
+  for over ten years" when the org is 8), an overstated geography ("western US"
+  for a California org), an unstated technical inference ("includes battery
+  storage" — never mentioned), and a **hard negative**: a wordy-but-true claim
+  that Verify must *not* flag.
+
+Latest run (Verify on Opus 4.8):
+
+```
+[obvious    ]  P 100%  R 100%  F1 100%   (TP 17 FP 0 FN 0 TN 34)
+[adversarial]  P 100%  R 100%  F1 100%   (TP  6 FP 0 FN 0 TN  7)
+[OVERALL    ]  P 100%  R 100%  F1 100%   (TP 23 FP 0 FN 0 TN 41)
+```
+
+This is the evidence behind a deliberate architecture choice: **Verify runs on
+the strongest model (Opus 4.8), not a cheap one, because subtle unsupported
+claims are exactly what a weaker model waves through.** The eval is what lets me
+claim that rather than assert it.
+
+**Honest limitation:** at 23 single-domain cases the set is *saturated* — 100%
+means it isn't yet hard enough to find Verify's breaking point. An eval that
+never fails has stopped measuring. The next step is a larger, harder, multi-domain
+set (and an LLM-judge matcher for claims that don't share surface tokens) to
+locate where detection actually degrades.
 
 The harness is itself unit-tested offline (`tests/test_eval.py`) with a fake
 client — the scorer's confusion-matrix logic is verified without spending a

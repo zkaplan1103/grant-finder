@@ -38,36 +38,53 @@ def run(client: LLMClient) -> Report:
     return report
 
 
+def _metrics_block(label: str, r: Report) -> None:
+    print(f"  [{label}]  P {r.precision:.0%}  R {r.recall:.0%}  F1 {r.f1:.0%}"
+          f"   (TP {r.tp} FP {r.fp} FN {r.fn} TN {r.tn})")
+
+
 def print_report(report: Report) -> None:
     print("\n=== Verify Agent — Hallucination Detection Eval ===\n")
-    print(f"{'case':<40} {'TP':>3} {'FP':>3} {'FN':>3} {'TN':>3}")
-    print("-" * 56)
+    print(f"{'case':<42} {'TP':>3} {'FP':>3} {'FN':>3} {'TN':>3}")
+    print("-" * 58)
     for c in report.cases:
         flag = " !" if (c.fn or c.errored) else ""
-        print(f"{c.name:<40} {c.tp:>3} {c.fp:>3} {c.fn:>3} {c.tn:>3}{flag}")
-    print("-" * 56)
-    print(f"{'TOTAL':<40} {report.tp:>3} {report.fp:>3} {report.fn:>3} {report.tn:>3}")
+        print(f"{c.name:<42} {c.tp:>3} {c.fp:>3} {c.fn:>3} {c.tn:>3}{flag}")
+    print("-" * 58)
+    # Per-tier split is the headline: a perfect "obvious" score is expected;
+    # the "adversarial" tier is the one that actually measures the verifier.
+    _metrics_block("obvious    ", report.subset("obvious"))
+    _metrics_block("adversarial", report.subset("adversarial"))
+    _metrics_block("OVERALL    ", report)
     print()
-    print(f"  Precision: {report.precision:.2%}   (of flags raised, how many were real)")
-    print(f"  Recall:    {report.recall:.2%}   (of planted claims, how many were caught)")
-    print(f"  F1:        {report.f1:.2%}")
-    misses = [t for c in report.cases for t in c.missed_tags]
+    print("  P = precision (of flags raised, how many were real)")
+    print("  R = recall    (of planted hallucinations, how many were caught)")
+    misses = [(c.difficulty, t) for c in report.cases for t in c.missed_tags]
     if misses:
         print(f"\n  Hallucinations that slipped through ({len(misses)}):")
-        for t in misses:
-            print(f"    - {t}")
+        for diff, t in misses:
+            print(f"    - [{diff}] {t}")
     print()
+
+
+def _tier_dict(r: Report) -> dict:
+    return {
+        "tp": r.tp, "fp": r.fp, "fn": r.fn, "tn": r.tn,
+        "precision": r.precision, "recall": r.recall, "f1": r.f1,
+    }
 
 
 def to_dict(report: Report) -> dict:
     return {
-        "totals": {
-            "tp": report.tp, "fp": report.fp, "fn": report.fn, "tn": report.tn,
-            "precision": report.precision, "recall": report.recall, "f1": report.f1,
+        "overall": _tier_dict(report),
+        "by_difficulty": {
+            "obvious": _tier_dict(report.subset("obvious")),
+            "adversarial": _tier_dict(report.subset("adversarial")),
         },
         "cases": [
             {
-                "name": c.name, "tp": c.tp, "fp": c.fp, "fn": c.fn, "tn": c.tn,
+                "name": c.name, "difficulty": c.difficulty,
+                "tp": c.tp, "fp": c.fp, "fn": c.fn, "tn": c.tn,
                 "missed": c.missed_tags, "false_alarms": c.false_alarms,
                 "errored": c.errored,
             }

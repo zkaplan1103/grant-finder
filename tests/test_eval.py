@@ -74,4 +74,20 @@ def test_runner_with_fake_client_no_failures():
     # A Verify that flags nothing catches no hallucinations.
     assert report.tp == 0
     d = to_dict(report)
-    assert "totals" in d and d["totals"]["recall"] == 0.0
+    assert "overall" in d and d["overall"]["recall"] == 0.0
+    assert "by_difficulty" in d and "adversarial" in d["by_difficulty"]
+
+
+def test_difficulty_split_present():
+    """Cases carry a difficulty tier and the report can subset by it."""
+    cases = load_cases()
+    levels = {c.difficulty for c in cases}
+    assert levels == {"obvious", "adversarial"}
+
+    from eval.run import run
+
+    report = run(FakeLLMClient(json.dumps({"passed": True, "failures": []})))
+    adv = report.subset("adversarial")
+    obv = report.subset("obvious")
+    assert len(adv.cases) > 0 and len(obv.cases) > 0
+    assert len(adv.cases) + len(obv.cases) == len(report.cases)
