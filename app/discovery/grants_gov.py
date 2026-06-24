@@ -114,6 +114,16 @@ class GrantsGovClient:
         return str(value) if value else None
 
     @staticmethod
+    def _detail_url(hit: Dict[str, Any]) -> Optional[str]:
+        # The grants.gov detail page is keyed on the NUMERIC opportunity id
+        # (.../search-results-detail/354632). The alphanumeric "number"
+        # (EPA-R9-...) 404s on that path, so only build a URL from a numeric id.
+        numeric_id = hit.get("id") or hit.get("oppId")
+        if numeric_id and str(numeric_id).isdigit():
+            return f"https://www.grants.gov/search-results-detail/{numeric_id}"
+        return None
+
+    @staticmethod
     def _normalize_hit(hit: Dict[str, Any]) -> Opportunity:
         opp_id = str(hit.get("id") or hit.get("number") or hit.get("oppId") or "")
         return Opportunity(
@@ -121,7 +131,7 @@ class GrantsGovClient:
             source=OpportunitySource.GRANTS_GOV,
             title=str(hit.get("title") or "Untitled opportunity"),
             agency=hit.get("agencyName") or hit.get("agency"),
-            url=(f"https://www.grants.gov/search-results-detail/{opp_id}" if opp_id else None),
+            url=GrantsGovClient._detail_url(hit),
             status=hit.get("oppStatus"),
             close_date=hit.get("closeDate"),
             aln=GrantsGovClient._aln(
@@ -137,7 +147,10 @@ class GrantsGovClient:
             source=OpportunitySource.GRANTS_GOV,
             title=str(payload.get("opportunityTitle") or synopsis.get("title") or "Untitled"),
             agency=payload.get("agencyName") or synopsis.get("agencyName"),
-            url=(f"https://www.grants.gov/search-results-detail/{opp_id}" if opp_id else None),
+            url=(
+                f"https://www.grants.gov/search-results-detail/{opp_id}"
+                if opp_id and opp_id.isdigit() else None
+            ),
             status=payload.get("opportunityStatus"),
             close_date=synopsis.get("responseDate"),
             aln=GrantsGovClient._aln(payload.get("cfdaList")),

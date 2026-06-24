@@ -17,6 +17,8 @@ silent failure).
 
 from __future__ import annotations
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 
@@ -36,6 +38,13 @@ from app.models import (
 ProgressFn = Callable[[str, int, int], None]
 
 DEFAULT_MAX_REVISIONS = 3
+
+# Match scoring and the per-opportunity draft/verify loops are independent across
+# opportunities, so we run them concurrently. The anthropic SDK client is
+# thread-safe (httpx connection pool), so one client is shared across threads.
+# ponytail: bounded pool, not unbounded threads — caps in-flight calls so a
+# 40-opportunity search doesn't fire 40 simultaneous requests and trip rate limits.
+_MAX_CONCURRENCY = 8
 
 
 def run_draft_verify_loop(
@@ -116,35 +125,53 @@ def run_pipeline(
     `progress(stage, done, total)` is called as work completes so the SSE endpoint
     can report real progress. Optional — None means no reporting.
     """
-    def report(stage: str, done: int, total: int) -> None:
-        if progress is not None:
-            progress(stage, done, total)
+    # Thread-safe progress: a lock guards the per-stage completed counter so
+    # concurrent workers report monotonic done/total counts to the SSE endpoint.
+    _lock = threading.Lock()
+    _done = {"n": 0}
 
-    scored: List[MatchedOpportunity] = []
+    def report_one(stage: str, total: int) -> None:
+        if progress is None:
+            return
+        with _lock:
+            _done["n"] += 1
+            n = _done["n"]
+        progress(stage, n, total)
+
     total = len(opportunities)
-    for i, opp in enumerate(opportunities, 1):
+
+    # Stage 1: score every opportunity concurrently (independent Match calls).
+    def _score(opp: Opportunity) -> MatchedOpportunity:
         match = match_agent.score(profile, opp)
-        scored.append(MatchedOpportunity(opportunity=opp, match=match))
-        report("match", i, total)
+        report_one("match", total)
+        return MatchedOpportunity(opportunity=opp, match=match)
+
+    with ThreadPoolExecutor(max_workers=_MAX_CONCURRENCY) as pool:
+        # executor.map preserves input order; sort below makes order irrelevant anyway.
+        scored: List[MatchedOpportunity] = list(pool.map(_score, opportunities))
 
     scored.sort(key=lambda m: m.match.fit_score, reverse=True)
 
     to_draft = [m for m in scored if m.match.fit_score >= strong_fit_threshold][:draft_top_n]
-    drafted = 0
-    for item in scored:
-        if drafted >= draft_top_n:
-            break
-        if item.match.fit_score >= strong_fit_threshold:
-            item.draft = run_draft_verify_loop(
-                profile,
-                item.opportunity,
-                item.match,
-                drafter,
-                verifier,
-                max_revisions=max_revisions,
-            )
-            drafted += 1
-            report("draft", drafted, len(to_draft))
+
+    # Stage 2: draft+verify the selected candidates concurrently (each loop is
+    # independent — a different opportunity's draft doesn't depend on this one).
+    _done["n"] = 0  # reset counter for the draft stage
+
+    def _draft(item: MatchedOpportunity) -> None:
+        item.draft = run_draft_verify_loop(
+            profile,
+            item.opportunity,
+            item.match,
+            drafter,
+            verifier,
+            max_revisions=max_revisions,
+        )
+        report_one("draft", len(to_draft))
+
+    if to_draft:
+        with ThreadPoolExecutor(max_workers=_MAX_CONCURRENCY) as pool:
+            list(pool.map(_draft, to_draft))
 
     # Hide weak fits from the result list (a 0.2 match is noise to a caseworker).
     # min_display_score=0 shows everything for users who want the full ranking.
