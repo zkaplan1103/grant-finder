@@ -80,6 +80,7 @@ body {
     background: var(--surface);
     border: 2px solid var(--hairline);
     border-radius: 0;
+    box-shadow: 6px 6px 0 var(--hairline);   /* shell-register stamp depth */
   }
 
   /* ---- Inputs / selects ---- */
@@ -193,10 +194,13 @@ body {
   }
 
   /* ==== DATA ZONE (Option A): technical register — 1px line, 8px radius, semantic color ==== */
+  /* Hard offset shadow (the same "stamp" vocabulary as buttons) gives the card
+     tactile depth without going soft/glassy. DESIGN.md §5.7. */
   .dcard {
     background: var(--bg);
-    border: 1px solid var(--line);
+    border: 1px solid var(--hairline);
     border-radius: 8px;
+    box-shadow: 5px 5px 0 var(--line);
     transition: opacity 0.2s var(--ease-spring);
   }
   .dcard[data-low="true"] { opacity: 0.6; }       /* low-confidence mute */
@@ -238,6 +242,38 @@ body {
     background: var(--surface-2); color: var(--muted);
   }
 
+  /* ---- Flip card (DESIGN.md §5.7): flat 3D, front=summary, back=boilerplate ---- */
+  .flip-scene { perspective: 1600px; }
+  /* Shadow rides on each FACE so it flips with the card (a static shadow under a
+     rotating card looks detached). Front + back each carry their own offset. */
+  .flip-scene .flip-face { box-shadow: 5px 5px 0 var(--line); }
+  .flip-inner {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.5s var(--ease-spring);
+  }
+  .flip-inner[data-flipped="true"] { transform: rotateY(180deg); }
+  .flip-face {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  /* Back is absolutely stacked over front, pre-rotated so it faces out when flipped. */
+  .flip-back {
+    position: absolute; inset: 0;
+    transform: rotateY(180deg);
+    overflow: auto;
+  }
+
+  /* deck position dots (data-zone) */
+  .deck-dot {
+    width: 8px; height: 8px; border-radius: 999px;
+    border: 1px solid var(--muted); background: transparent;
+    cursor: pointer; padding: 0;
+    transition: background 0.15s var(--ease-spring), transform 0.1s var(--ease-spring);
+  }
+  .deck-dot:hover { transform: scale(1.2); }
+  .deck-dot[data-active="true"] { background: var(--ink); border-color: var(--ink); }
+
   /* flagged-claim gutter */
   .claim-gutter { border-left: 3px solid var(--err); padding-left: 0.75rem; }
 
@@ -271,4 +307,11 @@ input[type="number"] { -moz-appearance: textfield; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+
+  /* No 3D rotate — stack faces and toggle visibility (cross-fade), DESIGN.md §5.7. */
+  .flip-inner { transform: none !important; transform-style: flat; }
+  .flip-inner > .flip-face { backface-visibility: visible; }
+  .flip-back { position: absolute; inset: 0; transform: none; }
+  .flip-inner[data-flipped="false"] .flip-back,
+  .flip-inner[data-flipped="true"] > .flip-face:first-child { visibility: hidden; }
 }

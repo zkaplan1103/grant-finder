@@ -140,6 +140,42 @@ A result carries **two unrelated facts** that must never read as one status:
   150–250ms, spring easing.
 - Respect `prefers-reduced-motion` (disable transforms/animations). Non-negotiable.
 
+### 5.7 Results browsing (one-at-a-time card deck)
+Results are browsed **one match at a time** (ranked order), not as a stacked
+list. Components:
+
+- **Card depth.** Data-zone cards carry a **hard offset shadow** (solid, no blur,
+  ~5px) — the same "stamp" vocabulary as shell buttons, so depth is one system,
+  not a one-off. This is the brutalist way to add tactile depth; never soft/blurred
+  shadows or glass. (Flat-everywhere read as dead; the offset shadow fixes that
+  without leaving the aesthetic.)
+- **No duplicate signals.** Each fact appears once: (a) the VERIFIED badge already
+  states a clean first-pass verification — the trail line is shown **only when it
+  adds information** (revisions happened or claims remain). (b) Source appears as
+  **one** signal — a link that names the source ("View at grants.gov ↗") when a
+  url exists, or a plain labeled SOURCE chip when it doesn't — never both a chip
+  and a link.
+- **Fit gauge.** A half-circle arc showing the current match's fit %, in the
+  data-zone register: flat (no gradient/glow), thick rounded-cap stroke, big
+  mono `tabular-nums` number + `/100` (or `%`) centered. **Arc color is
+  semantic** — green ≥0.7 / amber ≥0.5 / gray below (matches §6 score color).
+  When `low_confidence`, the arc is muted + a "low confidence" mono caption; the
+  number never reads as authoritative when the data isn't.
+- **Flip card.** A flat "3D" card (CSS `transform: rotateY`, `backface-hidden`):
+  - **Front:** the summary + all trust signals — verification badge, scannable
+    reasoning/caveats, source chip, award/deadline, flagged claims (needs_human),
+    verification trail. Trust lives on the front; never hidden behind the flip.
+  - **Back:** the application boilerplate (long-form) **only**, plus a **copy
+    button**. (Eligibility summary lives on the front as a fit bullet, not here.)
+  - Flip is an explicit control ("View boilerplate" / "Back"), not a hover.
+    `prefers-reduced-motion`: cross-fade instead of rotate.
+- **Deck navigation.** Prev/next controls (and keyboard ←/→) step through
+  matches; a "N of M" label + position dots show place in the ranked set.
+  Buttons use the shell stamp-press; dots are data-zone (1px, current = ink).
+- **Copy to clipboard.** On the boilerplate (and anywhere we expose copyable
+  draft text). Uses `navigator.clipboard`; shows a brief "Copied" confirmation
+  (text/icon swap, ~1.5s), never a disruptive toast. Mono label.
+
 ---
 
 ## 6. Trust UI (the headline — locked spec)
