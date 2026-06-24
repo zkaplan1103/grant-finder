@@ -20,6 +20,9 @@ from app.web.pipeline import FullResult, PipelineConfigError
 
 @pytest.fixture
 def client():
+    # Fresh guard per test so rate-limit state from one test can't 429 the next.
+    from app.web.guard import GuardState
+    app.state.guard = GuardState()
     return TestClient(app)
 
 

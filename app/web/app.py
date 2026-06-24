@@ -15,7 +15,7 @@ import logging
 import os
 import queue
 import threading
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -24,6 +24,7 @@ from pydantic import ValidationError
 
 from app.models import Profile
 from app.orchestrator import MatchedOpportunity, PipelineResult
+from app.web.guard import GuardState, client_ip
 from app.web.pipeline import FullResult, PipelineConfigError, run_full_pipeline
 
 logger = logging.getLogger("grant_navigator.web")
@@ -33,6 +34,59 @@ app = FastAPI(title="Grant Navigator")
 # Default runner is the real pipeline; tests override app.state.run_pipeline.
 RunnerType = Callable[[Profile], FullResult]
 app.state.run_pipeline = run_full_pipeline
+
+# Abuse/cost guard: one in-memory tracker per process. Bounds the expensive
+# /api/match endpoints (per-IP + global rate limit + daily spend kill-switch).
+app.state.guard = GuardState()
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    """Baseline hardening headers. Cheap, no behavior change. No CORS middleware
+    is needed — the SPA is served same-origin, and FastAPI sends no permissive
+    CORS headers by default, so cross-origin browser calls are already blocked."""
+    resp = await call_next(request)
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    return resp
+
+
+# A valid profile is small (well under a KB). Cap the body so a giant payload
+# can't waste memory/parse time. 64KB is generous headroom.
+_MAX_BODY_BYTES = 64 * 1024
+
+
+class _BodyTooLarge(ValueError):
+    pass
+
+
+async def _read_json_capped(request: Request):
+    """Read + JSON-parse the body, rejecting anything over the size cap.
+
+    Checks Content-Length when present, and also enforces the cap on the actual
+    bytes (a lying/absent Content-Length can't sneak a huge body past us).
+    """
+    cl = request.headers.get("content-length")
+    if cl is not None and cl.isdigit() and int(cl) > _MAX_BODY_BYTES:
+        raise _BodyTooLarge()
+    raw = await request.body()
+    if len(raw) > _MAX_BODY_BYTES:
+        raise _BodyTooLarge()
+    return json.loads(raw)
+
+
+def _guard_check(request: Request) -> Optional[JSONResponse]:
+    """Run the rate/spend guard. Returns a 429 JSONResponse if blocked, else None.
+
+    Tests don't set app.state.guard to a custom value, but the default above is
+    permissive enough for the suite; a test can swap in its own GuardState.
+    """
+    guard: GuardState = request.app.state.guard
+    decision = guard.check_and_consume(client_ip(request))
+    if not decision.ok:
+        return JSONResponse({"error": decision.reason}, status_code=429)
+    return None
 
 
 def _runner(request: Request) -> RunnerType:
@@ -64,9 +118,14 @@ def _result_to_dict(result: FullResult) -> Dict[str, Any]:
 # --------------------------------------------------------------------------- #
 @app.post("/api/match")
 async def match(request: Request) -> JSONResponse:
+    # 0. Abuse/cost guard first — reject floods before doing any work.
+    blocked = _guard_check(request)
+    if blocked is not None:
+        return blocked
+
     # 1. Parse + validate the profile from JSON. Bad input -> friendly 400.
     try:
-        body = await request.json()
+        body = await _read_json_capped(request)
         profile = Profile.model_validate(body)
     except (ValidationError, ValueError):
         return JSONResponse(
@@ -104,8 +163,12 @@ async def match_stream(request: Request) -> StreamingResponse:
     (stage, done, total) progress onto a queue; the generator drains the queue
     to the client. Errors are sanitized exactly like /api/match.
     """
+    blocked = _guard_check(request)
+    if blocked is not None:
+        return blocked
+
     try:
-        body = await request.json()
+        body = await _read_json_capped(request)
         profile = Profile.model_validate(body)
     except (ValidationError, ValueError):
         return JSONResponse(
