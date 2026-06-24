@@ -30,6 +30,21 @@ const EMPTY: FormState = {
   estimated_cost_usd: '', amount_needed_usd: '', mission_statement: '', populations_served: '',
 }
 
+// A complete, realistic org so the sparse banner does NOT appear and results
+// exercise the full pipeline (verified + needs-review + a weaker match).
+const SAMPLE: FormState = {
+  project_type: 'community solar', is_501c3: 'true', funding_preference: 'either',
+  annual_budget_usd: '850000', org_age_years: '9',
+  state: 'IA', disadvantaged_community: 'true',
+  service_area: 'Low-income rural counties in central Iowa',
+  project_specific_type: 'rooftop and community solar arrays', stage: 'shovel-ready',
+  estimated_cost_usd: '480000', amount_needed_usd: '200000',
+  mission_statement:
+    'Midwest Solar Collective helps low-income rural households cut energy costs by '
+    + 'installing community solar arrays on affordable-housing sites.',
+  populations_served: 'low-income, rural',
+}
+
 const numOpt = (v: string) => (v.trim() === '' ? undefined : Number(v))
 const strOpt = (v: string) => (v.trim() === '' ? undefined : v.trim())
 const boolOpt = (v: string) => (v === '' ? null : v === 'true')
@@ -72,11 +87,12 @@ export function Wizard({ onSubmit }: { onSubmit: (p: Profile) => void }) {
     setForm((f) => ({ ...f, [key]: value }))
 
   const go = (next: number) => { setDir(next > step ? 'fwd' : 'back'); setStep(next) }
+  const loadSample = () => { setForm(SAMPLE); setDir('fwd'); setStep(STEPS.length - 1) }
 
   const requiredOk =
     form.project_type.trim() !== '' &&
-    form.annual_budget_usd.trim() !== '' &&
-    form.org_age_years.trim() !== ''
+    Number(form.annual_budget_usd) > 0 &&   // digits-only; must be a real budget
+    form.org_age_years.trim() !== ''         // 0 is valid (founded this year)
 
   const last = step === STEPS.length - 1
 
@@ -106,6 +122,17 @@ export function Wizard({ onSubmit }: { onSubmit: (p: Profile) => void }) {
           </div>
         ))}
       </div>
+
+      {step === 0 && (
+        <div className="flex items-center justify-between mb-5 pb-4" style={{ borderBottom: '1px solid var(--faint)' }}>
+          <span className="mono text-[0.74rem]" style={{ color: 'var(--muted)' }}>
+            Not sure what to enter?
+          </span>
+          <button type="button" className="btn btn-ghost !py-2 !px-3 text-[0.78rem]" onClick={loadSample}>
+            Try a Sample Profile
+          </button>
+        </div>
+      )}
 
       <div key={step} className={dir === 'fwd' ? 'anim-fwd' : 'anim-back'}>
         {step === 0 && <StepRequired form={form} set={set} />}

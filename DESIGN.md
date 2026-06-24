@@ -110,12 +110,30 @@ snaps to it. No magic numbers.
   collapses to 0 as the button translates in on `:active`; spring release.
   Square, uppercase, 2px border.
 - **Inputs (shell):** square, 2px border, 3px focus outline. No glass, no blur.
-- **Combobox:** free-text input + preset chips in a **single horizontal
-  scrolling row** (never a tall stacking list, never a popup that covers the
-  field).
+- **Combobox:** free-text input + preset chips that **wrap to a block below the
+  field** (never a side-scrolling row, never a popup that covers the field). One
+  idiom for all preset fields.
+- **Number fields:** plain text input, `inputMode=numeric`, **no spinner**,
+  digits-only (no negatives), thousands separators on display (`300,000`).
 - **Cards (data zone):** 1px `--line`, 8px radius, flat.
-- **Badges (data zone):** semantic — icon + text + color. Verified = green check,
-  Needs Review = amber triangle, Draft = gray. Status by structure AND color.
+
+### 5.5.1 Two-axis labeling: SOURCE vs. VERIFICATION (trust-critical)
+A result carries **two unrelated facts** that must never read as one status:
+
+| Axis | Question it answers | Values | Treatment |
+|------|--------------------|--------|-----------|
+| **Source** | *Where did this grant come from?* | grants.gov / curated | A **labeled SOURCE chip** — neutral (gray, `--line` border), prefixed `SOURCE`. Provenance, not quality. |
+| **Verification** | *Did the drafted application pass hallucination-checking?* | verified / needs review / draft | A **VERIFICATION badge** — semantic color + icon (see §6 three-tier). Quality of the draft, not the grant. |
+
+**Rules:**
+- The two are **visually and spatially separated** — never a row of look-alike
+  pills. Different shape/label so a glance can't conflate them. The SOURCE chip
+  is provenance metadata; the VERIFICATION badge is the trust signal.
+- Each is **labeled** (the word `SOURCE` on the chip; the verification badge's
+  own text — "Verified" / "Needs Review" / "Draft" — is self-labeling). A bare
+  "curated" next to a bare "verified" is the exact bug this rules out.
+- Semantic color belongs to **verification only**. Source is always neutral —
+  "curated" is not better or worse than "grants.gov," so it gets no color.
 
 ### 5.6 Motion
 - Step transitions: directional (forward slides from right, back from left),
@@ -127,6 +145,11 @@ snaps to it. No magic numbers.
 ## 6. Trust UI (the headline — locked spec)
 
 These are mandatory, not optional polish:
+
+0. **Source ≠ verification (see §5.5.1).** Where a grant came from (source) and
+   whether its draft passed checking (verification) are unrelated axes and must
+   never read as one status. Labeled neutral SOURCE chip, separated from the
+   semantic VERIFICATION badge.
 
 1. **Three-tier status treatment.** `verified` / `needs_human` / `draft` each get
    a **distinct card treatment**, not just a badge color, so verification state

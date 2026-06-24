@@ -1,4 +1,4 @@
-import { Field, Combobox } from './Field'
+import { Field, Combobox, NumberInput } from './Field'
 import type { FormState } from './Wizard'
 
 type StepProps = {
@@ -58,11 +58,11 @@ export function StepRequired({ form, set }: StepProps) {
 
       <div className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
         <Field label="Annual budget (USD)" hint="type or pick" required>
-          <Combobox type="number" value={form.annual_budget_usd}
-            onChange={(v) => set('annual_budget_usd', v)} options={BUDGETS} placeholder="300000" />
+          <Combobox numeric value={form.annual_budget_usd}
+            onChange={(v) => set('annual_budget_usd', v)} options={BUDGETS} placeholder="300,000" />
         </Field>
         <Field label="Org age (years)" hint="type or pick" required>
-          <Combobox type="number" value={form.org_age_years}
+          <Combobox numeric value={form.org_age_years}
             onChange={(v) => set('org_age_years', v)} options={AGES} placeholder="5" />
         </Field>
       </div>
@@ -120,12 +120,12 @@ export function StepMission({ form, set }: StepProps) {
       <OptionalNotice />
       <div className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
         <Field label="Estimated project cost (USD)">
-          <input className="field-input" type="number" value={form.estimated_cost_usd}
-            onChange={(e) => set('estimated_cost_usd', e.target.value)} placeholder="250000" />
+          <NumberInput value={form.estimated_cost_usd}
+            onChange={(v) => set('estimated_cost_usd', v)} placeholder="250,000" />
         </Field>
         <Field label="Amount needed (USD)">
-          <input className="field-input" type="number" value={form.amount_needed_usd}
-            onChange={(e) => set('amount_needed_usd', e.target.value)} placeholder="100000" />
+          <NumberInput value={form.amount_needed_usd}
+            onChange={(v) => set('amount_needed_usd', v)} placeholder="100,000" />
         </Field>
       </div>
       <Field label="Mission statement">

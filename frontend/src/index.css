@@ -17,14 +17,19 @@
   --text: #0a0a0a;
   --muted: #525252;
   --faint: #d4d4d0;
-  --hairline: #1a1a1a;       /* heavy structural border color */
-  --error: #b91c1c;
+  --hairline: #1a1a1a;       /* SHELL border (2px) */
+  --line: #e5e5e1;           /* DATA-ZONE hairline (1px) */
+  /* Semantic — status/severity only */
+  --ok: #15803d;   --ok-bg: #f0fdf4;
+  --warn: #b45309; --warn-bg: #fffbeb;
+  --err: #b91c1c;  --err-bg: #fef2f2;
+  --error: #b91c1c;          /* legacy alias (shell error card) */
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 :root[data-theme="dark"] {
-  --bg: #0a0a0a;
-  --paper: #0f0f0f;
+  --bg: #0f0f0f;
+  --paper: #0a0a0a;
   --surface: #171717;
   --surface-2: #262626;
   --ink: #f5f5f5;
@@ -32,7 +37,11 @@
   --text: #f5f5f5;
   --muted: #a3a3a3;
   --faint: #404040;
-  --hairline: #e5e5e5;
+  --hairline: #e5e5e5;       /* SHELL border (2px) */
+  --line: #2a2a2a;           /* DATA-ZONE hairline (1px) */
+  --ok: #4ade80;   --ok-bg: #0d2818;
+  --warn: #fcd34d; --warn-bg: #2a2305;
+  --err: #fca5a5;  --err-bg: #2d1111;
   --error: #fca5a5;
 }
 
@@ -183,20 +192,65 @@ body {
     background: var(--ink); color: var(--ink-on); border-color: var(--ink);
   }
 
-  /* ---- Status badge: icon + text + border weight, no fill color ---- */
+  /* ==== DATA ZONE (Option A): technical register — 1px line, 8px radius, semantic color ==== */
+  .dcard {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    transition: opacity 0.2s var(--ease-spring);
+  }
+  .dcard[data-low="true"] { opacity: 0.6; }       /* low-confidence mute */
+  .dcard[data-status="needs_human"] { border-left: 3px solid var(--warn); }
+
+  /* semantic badge: icon + text + color, rounded (data-zone) */
   .badge {
     display: inline-flex; align-items: center; gap: 0.3rem;
-    padding: 0.18rem 0.5rem;
+    padding: 0.16rem 0.5rem;
     font-family: "JetBrains Mono", monospace;
     font-size: 0.68rem;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    border: 2px solid var(--faint);
-    border-radius: 0;
+    letter-spacing: 0.05em;
+    border: 1px solid var(--line);
+    border-radius: 6px;
     color: var(--muted);
   }
-  .badge[data-weight="heavy"] { border-color: var(--hairline); border-width: 3px; color: var(--text); }
+  .badge[data-tone="ok"]   { color: var(--ok);   border-color: var(--ok);   background: var(--ok-bg); }
+  .badge[data-tone="warn"] { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
+  .badge[data-tone="err"]  { color: var(--err);  border-color: var(--err);  background: var(--err-bg); }
+
+  /* SOURCE chip — provenance metadata, ALWAYS neutral, labeled (DESIGN.md §5.5.1).
+     Deliberately a different shape from the verification badge so the two axes
+     can never be conflated: pill-rounded, a small "SOURCE" prefix label. */
+  .source-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.16rem 0.55rem 0.16rem 0.4rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.05em;
+    border: 1px solid var(--line);
+    border-radius: 999px;          /* pill — distinct from the square-ish badge */
+    color: var(--muted);
+  }
+  .source-chip .src-label {
+    font-size: 0.56rem; font-weight: 700; letter-spacing: 0.1em;
+    padding: 0.05rem 0.3rem; border-radius: 999px;
+    background: var(--surface-2); color: var(--muted);
+  }
+
+  /* flagged-claim gutter */
+  .claim-gutter { border-left: 3px solid var(--err); padding-left: 0.75rem; }
+
+  /* verification trail line */
+  .trail {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.6rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--line);
+  }
+  .trail[data-tone="ok"] { color: var(--ok); }
 }
 
 /* ---- Step transitions (directional) ---- */
@@ -207,10 +261,10 @@ body {
 .anim-back { animation: step-in-back 0.25s var(--ease-spring) both; }
 .animate-in { animation: fade-up 0.3s var(--ease-spring) both; }
 
-/* Single-row chip scroller: thin, unobtrusive scrollbar */
-.chip-row { scrollbar-width: thin; }
-.chip-row::-webkit-scrollbar { height: 4px; }
-.chip-row::-webkit-scrollbar-thumb { background: var(--faint); }
+/* Kill native number spinners everywhere (we use text+inputMode=numeric). */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
 
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 .cursor-blink { animation: blink 0.8s step-end infinite; }

@@ -19,32 +19,38 @@ export function Field({
   )
 }
 
-// Type-or-pick: free-text input + preset chips below. No popup that can cover the field.
+// Format an integer string with thousands separators for display: "300000" -> "300,000".
+const withCommas = (digits: string) => (digits === '' ? '' : Number(digits).toLocaleString('en-US'))
+// Keep only digits (no negatives, no decimals, no letters).
+const digitsOnly = (s: string) => s.replace(/[^\d]/g, '')
+
+// Type-or-pick: free-text input + preset chips that WRAP below it (no scroll, no popup).
 export function Combobox({
-  value, onChange, options, placeholder, type = 'text',
+  value, onChange, options, placeholder, numeric = false,
 }: {
-  value: string
+  value: string                         // always the raw value (digits for numeric)
   onChange: (v: string) => void
   options: { value: string; label: string }[]
   placeholder?: string
-  type?: 'text' | 'number'
+  numeric?: boolean
 }) {
   return (
     <div>
       <input
         className="field-input"
-        type={type}
-        value={value}
+        type="text"
+        inputMode={numeric ? 'numeric' : 'text'}
+        value={numeric ? withCommas(value) : value}
         placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(numeric ? digitsOnly(e.target.value) : e.target.value)}
       />
-      <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1 chip-row">
+      <div className="flex flex-wrap gap-1.5 mt-2">
         {options.map((o) => (
           <button
             key={o.value}
             type="button"
             onClick={() => onChange(o.value)}
-            className="chip shrink-0"
+            className="chip"
             data-active={value === o.value}
           >
             {o.label}
@@ -52,5 +58,21 @@ export function Combobox({
         ))}
       </div>
     </div>
+  )
+}
+
+// Plain numeric field (no presets): no spinner, no negatives, comma display.
+export function NumberInput({
+  value, onChange, placeholder,
+}: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <input
+      className="field-input"
+      type="text"
+      inputMode="numeric"
+      value={withCommas(value)}
+      placeholder={placeholder}
+      onChange={(e) => onChange(digitsOnly(e.target.value))}
+    />
   )
 }
