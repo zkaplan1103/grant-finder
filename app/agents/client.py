@@ -15,6 +15,13 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
 
 
+class ServiceUnavailableError(Exception):
+    """The upstream model API is temporarily unavailable (rate limit, quota, or
+    overload). Carries a sanitized, user-facing message — never the raw SDK
+    error (which could include account/key context). Distinct from a generic
+    failure so the web layer can say 'at capacity, try again' vs. 'broke'."""
+
+
 @dataclass
 class LLMResponse:
     """Minimal normalized response: the assistant text plus the request echo.
@@ -78,7 +85,32 @@ class AnthropicLLMClient:
         if thinking is not None:
             kwargs["thinking"] = thinking
 
-        resp = self._client.messages.create(**kwargs)
+        import anthropic
+
+        try:
+            resp = self._client.messages.create(**kwargs)
+        except (anthropic.RateLimitError, anthropic.InternalServerError) as exc:
+            # Rate limit / quota cap / overload — transient and not our bug.
+            # Raise a sanitized type so the web layer shows "at capacity", never
+            # the raw SDK message (which can carry account context).
+            raise ServiceUnavailableError(
+                "The matching service is at capacity right now. Please try again "
+                "in a few minutes."
+            ) from exc
+        except anthropic.APIStatusError as exc:
+            # Other 4xx/5xx. A 429 is already handled above; a billing/quota error
+            # may surface here as 400 with type "billing_error" — treat capacity
+            # and billing limits as "temporarily unavailable", re-raise the rest.
+            if getattr(exc, "status_code", None) == 429 or getattr(exc, "type", "") in (
+                "billing_error",
+                "overloaded_error",
+                "rate_limit_error",
+            ):
+                raise ServiceUnavailableError(
+                    "The matching service is at capacity right now. Please try "
+                    "again in a few minutes."
+                ) from exc
+            raise
         # Concatenate text blocks (skip thinking blocks).
         text = "".join(
             getattr(block, "text", "") for block in resp.content if getattr(block, "type", "") == "text"

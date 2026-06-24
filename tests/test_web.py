@@ -164,6 +164,26 @@ def test_config_error_is_sanitized(client):
     assert "Traceback" not in text
 
 
+def test_service_unavailable_returns_503_not_500(client):
+    # Upstream API at capacity (rate limit / quota) -> a clear 503 "at capacity",
+    # distinct from the generic 500, with no raw SDK error leaked.
+    from app.agents.client import ServiceUnavailableError
+
+    def runner(profile):
+        raise ServiceUnavailableError(
+            "The matching service is at capacity right now. Please try again in a few minutes."
+        )
+
+    app.state.run_pipeline = runner
+    try:
+        resp = client.post("/api/match", json=_good_profile())
+    finally:
+        app.state.run_pipeline = None
+    assert resp.status_code == 503
+    assert "at capacity" in resp.json()["error"].lower()
+    assert "Traceback" not in resp.text
+
+
 def test_unexpected_error_is_sanitized(client):
     def runner(profile):
         raise RuntimeError("boom secret-internal-detail sk-ant-xyz")

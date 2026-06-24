@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
 
+from app.agents.client import ServiceUnavailableError
 from app.models import Profile
 from app.orchestrator import MatchedOpportunity, PipelineResult
 from app.web.guard import GuardState, client_ip
@@ -136,8 +137,9 @@ async def match(request: Request) -> JSONResponse:
     # 2. Run the pipeline. Any failure returns a sanitized error.
     try:
         result = _runner(request)(profile)
-    except PipelineConfigError as exc:
-        # Message is already sanitized (no key/secret).
+    except (PipelineConfigError, ServiceUnavailableError) as exc:
+        # Both carry sanitized, user-facing messages (no key/secret/internals).
+        # 503 = temporarily unavailable (not configured, or upstream at capacity).
         return JSONResponse({"error": str(exc)}, status_code=503)
     except Exception:  # noqa: BLE001 — last-resort guard
         # Never leak the exception text (could contain internals). Log server-side
@@ -190,7 +192,7 @@ async def match_stream(request: Request) -> StreamingResponse:
             except TypeError:
                 result = runner(profile)
             events.put(("done", _result_to_dict(result)))
-        except PipelineConfigError as exc:
+        except (PipelineConfigError, ServiceUnavailableError) as exc:
             events.put(("error", {"error": str(exc)}))
         except Exception:  # noqa: BLE001
             logger.exception("Pipeline failed")

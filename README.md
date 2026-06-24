@@ -1,5 +1,14 @@
 # Grant Navigator
 
+**[▶ Live demo](https://grant-finder-production-5dac.up.railway.app)** &nbsp;·&nbsp;
+multi-agent grant matching with a verified, hallucination-checked draft step.
+
+> **The headline: a trust layer with a measured benchmark.** The Verify agent
+> catches fabricated claims before any draft is shown — and it's scored, not
+> asserted: **100% precision / 100% recall** across a 31-case, 3-tier
+> hallucination benchmark (including adversarial + arithmetic/multi-hop reasoning
+> cases). See [`BENCHMARK.md`](BENCHMARK.md).
+
 A multi-agent system that takes a nonprofit's profile and produces a ranked,
 cited set of funding matches with drafted application boilerplate — with a
 verification step that refuses to let unsupported claims into a draft.
