@@ -137,3 +137,18 @@ def score_case(
             cs.false_alarms.append(f"unmatched:{flag.claim[:40]}")
 
     return cs
+
+
+def diff_reports(old: dict, new: dict) -> list[dict]:
+    """Find cases that regressed (were passing, now failing)."""
+    old_by_name = {c["name"]: c for c in old["cases"]}
+    regressions = []
+    for c in new["cases"]:
+        prev = old_by_name.get(c["name"])
+        if prev is None:
+            continue
+        if prev["fn"] == 0 and c["fn"] > 0:
+            regressions.append({"name": c["name"], "type": "recall_regression", "fn": c["fn"]})
+        if prev["fp"] == 0 and c["fp"] > 0:
+            regressions.append({"name": c["name"], "type": "precision_regression", "fp": c["fp"]})
+    return regressions

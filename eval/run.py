@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
+import statistics
 import sys
+from fnmatch import fnmatch
 from typing import List, Optional
 
 from app.agents import VerifyAgent
@@ -22,16 +25,88 @@ from eval.cases import load_cases
 from eval.scorer import Matcher, Report, score_case, token_matcher
 
 
-def run(client: LLMClient, matcher: Matcher = token_matcher) -> Report:
+def run(
+    client: LLMClient,
+    matcher: Matcher = token_matcher,
+    case_filter: Optional[str] = None,
+    cases: Optional[List] = None,
+) -> Report:
     agent = VerifyAgent(client)
     report = Report()
-    for case in load_cases():
+    case_list = cases if cases is not None else load_cases()
+    if case_filter:
+        case_list = [c for c in case_list if fnmatch(c.name, case_filter)]
+    for case in case_list:
         draft = case.to_draft()
         try:
             result = agent.verify(case.profile, case.opportunity, draft)
             flags: List[UnsupportedClaim] = result.failures
             cs = score_case(case, flags, matcher)
         except Exception as exc:  # a crashed case is a real failure mode — record it
+            cs = score_case(case, [], matcher)
+            cs.errored = True
+            cs.false_alarms.append(f"ERROR: {type(exc).__name__}: {exc}")
+        report.cases.append(cs)
+    return report
+
+
+def _smoke_cases() -> list[str]:
+    """Pick up to 5 representative case names (1 per tier if possible)."""
+    cases = load_cases()
+    seen_tiers: dict[str, str] = {}
+    for c in cases:
+        if c.difficulty not in seen_tiers:
+            seen_tiers[c.difficulty] = c.name
+    names = list(seen_tiers.values())
+    # Fill to 5 from remaining cases
+    for c in cases:
+        if len(names) >= 5:
+            break
+        if c.name not in names:
+            names.append(c.name)
+    return names
+
+
+def _ci95(values: list[float]) -> tuple[float, float, float]:
+    """Return (mean, ci_low, ci_high) for a list of values using t-distribution."""
+    n = len(values)
+    mu = statistics.mean(values)
+    if n < 2:
+        return mu, mu, mu
+    sd = statistics.stdev(values)
+    # t critical value for 95% CI, two-tailed, df=n-1
+    # Using a lookup table for small n; for larger n, approximate with 1.96.
+    _T_TABLE = {
+        1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571,
+        6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228,
+        15: 2.131, 20: 2.086, 25: 2.060, 30: 2.042,
+    }
+    df = n - 1
+    t_crit = _T_TABLE.get(df, 1.96)
+    if df not in _T_TABLE and df < 30:
+        # Interpolate from nearest lower key
+        keys = sorted(k for k in _T_TABLE if k <= df)
+        t_crit = _T_TABLE[keys[-1]] if keys else 1.96
+    margin = t_crit * sd / math.sqrt(n)
+    return mu, mu - margin, mu + margin
+
+
+def _run_smoke(client: LLMClient, matcher: Matcher = token_matcher) -> Report:
+    """Run only the smoke-test subset (5 representative cases)."""
+    # ponytail: duplicates run()'s loop body; deduplicating requires changing run()'s
+    # signature for a name-set filter, which is more complexity than the duplication.
+    smoke_names = set(_smoke_cases())
+    agent = VerifyAgent(client)
+    report = Report()
+    for case in load_cases():
+        if case.name not in smoke_names:
+            continue
+        draft = case.to_draft()
+        try:
+            result = agent.verify(case.profile, case.opportunity, draft)
+            flags: List[UnsupportedClaim] = result.failures
+            cs = score_case(case, flags, matcher)
+        except Exception as exc:
             cs = score_case(case, [], matcher)
             cs.errored = True
             cs.false_alarms.append(f"ERROR: {type(exc).__name__}: {exc}")
@@ -103,6 +178,36 @@ def to_dict(report: Report) -> dict:
     }
 
 
+def _print_multi_run(runs: list[Report]) -> None:
+    """Print mean P/R/F1 with 95% CI across multiple runs."""
+    ps = [r.precision for r in runs]
+    rs = [r.recall for r in runs]
+    f1s = [r.f1 for r in runs]
+    n = len(runs)
+    print(f"\n=== Multi-run summary ({n} runs) ===\n")
+    for label, vals in [("Precision", ps), ("Recall", rs), ("F1", f1s)]:
+        mu, lo, hi = _ci95(vals)
+        print(f"  {label:<10} {mu:.3f}  [{lo:.3f}, {hi:.3f}]  (95% CI)")
+    print()
+
+
+def _multi_run_dict(reports: list[Report]) -> dict:
+    """Build a JSON-serializable multi-run summary."""
+    ps = [r.precision for r in reports]
+    rs = [r.recall for r in reports]
+    f1s = [r.f1 for r in reports]
+    p_mu, p_lo, p_hi = _ci95(ps)
+    r_mu, r_lo, r_hi = _ci95(rs)
+    f_mu, f_lo, f_hi = _ci95(f1s)
+    return {
+        "runs": len(reports),
+        "precision": {"mean": p_mu, "ci_low": p_lo, "ci_high": p_hi},
+        "recall": {"mean": r_mu, "ci_low": r_lo, "ci_high": r_hi},
+        "f1": {"mean": f_mu, "ci_low": f_lo, "ci_high": f_hi},
+        "per_run": [to_dict(r) for r in reports],
+    }
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Verify-agent hallucination eval.")
     parser.add_argument("--json", metavar="PATH", help="Write a JSON report to PATH.")
@@ -110,6 +215,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="Exit non-zero if recall is below this (for CI gating).")
     parser.add_argument("--judge", action="store_true",
                         help="Score with the LLM-judge matcher (meaning, not tokens; costs more).")
+    parser.add_argument("--cases", metavar="GLOB",
+                        help="Only run cases whose name matches this glob (e.g. 'hard/*').")
+    parser.add_argument("--runs", type=int, default=1,
+                        help="Repeat the eval N times and report mean with 95%% CI.")
+    parser.add_argument("--smoke", action="store_true",
+                        help="Run only 5 representative cases (1 per tier if possible).")
     args = parser.parse_args(argv)
 
     client = build_default_client()
@@ -123,11 +234,29 @@ def main(argv: Optional[List[str]] = None) -> int:
         matcher = make_judge_matcher(client)
         print("(scoring with LLM-judge matcher)")
 
-    report = run(client, matcher)
+    case_filter = args.cases
+
+    reports: list[Report] = []
+    for i in range(args.runs):
+        if args.smoke and not case_filter:
+            report = _run_smoke(client, matcher)
+        else:
+            report = run(client, matcher, case_filter=case_filter)
+        reports.append(report)
+        if args.runs > 1:
+            print(f"--- run {i + 1}/{args.runs}: "
+                  f"P={report.precision:.2%} R={report.recall:.2%} F1={report.f1:.2%}")
+
+    report = reports[-1]  # last run for detailed output
     print_report(report)
+
+    if args.runs > 1:
+        _print_multi_run(reports)
+
     if args.json:
+        data = _multi_run_dict(reports) if args.runs > 1 else to_dict(report)
         with open(args.json, "w") as f:
-            json.dump(to_dict(report), f, indent=2)
+            json.dump(data, f, indent=2)
         print(f"Wrote {args.json}")
 
     if report.recall < args.min_recall:

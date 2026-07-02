@@ -10,6 +10,7 @@
 
 # Generated eval reports
 eval_report.json
+eval/reports/*.json
 
 # Python
 __pycache__/

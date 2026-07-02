@@ -36,11 +36,13 @@ class Sentence:
 
     `tag` is a unique token present in the text so a flagged claim can be matched
     back to the planted sentence it refers to without fuzzy string alignment.
+    `hallucination_type` maps to a taxonomy ID from eval/taxonomy.py (planted only).
     """
 
     text: str
     planted: bool  # True = unsupported claim Verify SHOULD flag
     tag: str  # unique keyword appearing in `text`, used for matching
+    hallucination_type: str = ""  # taxonomy ID; set on planted sentences
 
 
 @dataclass
@@ -125,6 +127,7 @@ def _hand_written() -> List[EvalCase]:
                 Sentence(
                     "The organization has already been awarded a 1.4 million dollar federal match for this project.",
                     planted=True, tag="invented-1point4-million-award",
+                    hallucination_type="quantity-fabrication",
                 ),
             ],
             boilerplate_sentences=[
@@ -135,6 +138,7 @@ def _hand_written() -> List[EvalCase]:
                 Sentence(
                     "Our headquarters in Phoenix, Arizona coordinates installations statewide.",
                     planted=True, tag="invented-phoenix-arizona-hq",
+                    hallucination_type="entity-fabrication",
                 ),
             ],
         )
@@ -154,6 +158,7 @@ def _hand_written() -> List[EvalCase]:
                 Sentence(
                     "The organization is a federally recognized tribal government entity.",
                     planted=True, tag="invented-tribal-government-status",
+                    hallucination_type="entity-fabrication",
                 ),
             ],
             boilerplate_sentences=[
@@ -208,12 +213,14 @@ def _hand_written() -> List[EvalCase]:
                 Sentence(
                     "The program has served over 40,000 veterans since its founding.",
                     planted=True, tag="invented-40000-veterans",
+                    hallucination_type="quantity-fabrication",
                 ),
             ],
             boilerplate_sentences=[
                 Sentence(
                     "Our work is delivered in formal partnership with the United States Department of Defense.",
                     planted=True, tag="invented-dod-partnership",
+                    hallucination_type="inferred-relationship",
                 ),
             ],
         )
@@ -237,12 +244,29 @@ _GROUNDED_BANK = [
 ]
 
 _UNSUPPORTED_BANK = [
-    Sentence("The organization was awarded a 2 million dollar prize last year.", planted=True, tag="u-2m-prize"),
-    Sentence("It operates a fleet of 30 electric vehicles for outreach.", planted=True, tag="u-30-evs"),
-    Sentence("The applicant is headquartered in Denver, Colorado.", planted=True, tag="u-denver"),
-    Sentence("The program has trained 12,000 certified solar installers.", planted=True, tag="u-12000-installers"),
-    Sentence("The organization is a registered religious institution.", planted=True, tag="u-religious"),
-    Sentence("It holds an exclusive contract with the state utility commission.", planted=True, tag="u-utility-contract"),
+    Sentence("The organization was awarded a 2 million dollar prize last year.",
+             planted=True, tag="u-2m-prize", hallucination_type="quantity-fabrication"),
+    Sentence("It operates a fleet of 30 electric vehicles for outreach.",
+             planted=True, tag="u-30-evs", hallucination_type="entity-fabrication"),
+    Sentence("The applicant is headquartered in Denver, Colorado.",
+             planted=True, tag="u-denver", hallucination_type="entity-fabrication"),
+    Sentence("The program has trained 12,000 certified solar installers.",
+             planted=True, tag="u-12000-installers", hallucination_type="quantity-fabrication"),
+    Sentence("The organization is a registered religious institution.",
+             planted=True, tag="u-religious", hallucination_type="entity-fabrication"),
+    Sentence("It holds an exclusive contract with the state utility commission.",
+             planted=True, tag="u-utility-contract", hallucination_type="inferred-relationship"),
+    Sentence("The application deadline was extended to March 2026.",
+             planted=True, tag="u-fake-deadline", hallucination_type="date-fabrication"),
+    Sentence("The grant explicitly does not fund rooftop installations.",
+             planted=True, tag="u-negation-flip", hallucination_type="negation-flip"),
+    Sentence("The applicant is eligible for the enhanced award tier.",
+             planted=True, tag="u-conditional-absolute",
+             hallucination_type="conditional-as-absolute"),
+    Sentence("According to the DOE annual report, the applicant is a top performer.",
+             planted=True, tag="u-attribution-shift", hallucination_type="attribution-shift"),
+    Sentence("The solar installation will lower regional grid prices.",
+             planted=True, tag="u-unsupported-causal", hallucination_type="unsupported-causal"),
 ]
 
 
@@ -290,7 +314,8 @@ def _adversarial() -> List[EvalCase]:
                 Sentence("The applicant is a 501(c)(3) serving disadvantaged Californians.",
                          planted=False, tag="adv1-grounded"),
                 Sentence("To date the organization has installed solar for more than 5,000 low-income households.",
-                         planted=True, tag="adv-invented-5000-households"),
+                         planted=True, tag="adv-invented-5000-households",
+                         hallucination_type="quantity-fabrication"),
             ],
         )
     )
@@ -305,7 +330,8 @@ def _adversarial() -> List[EvalCase]:
                 Sentence("The organization requests 250,000 dollars for community solar.",
                          planted=False, tag="adv2-grounded"),
                 Sentence("It has held 501(c)(3) status in good standing for over ten years.",
-                         planted=True, tag="adv-overstated-tenure"),
+                         planted=True, tag="adv-overstated-tenure",
+                         hallucination_type="quantity-distortion"),
             ],
         )
     )
@@ -319,7 +345,8 @@ def _adversarial() -> List[EvalCase]:
                 Sentence("Our mission is to bring solar to low-income, rural households.",
                          planted=False, tag="adv3-grounded"),
                 Sentence("The organization operates across the western United States.",
-                         planted=True, tag="adv-overstated-geography"),
+                         planted=True, tag="adv-overstated-geography",
+                         hallucination_type="scope-inflation"),
             ],
         )
     )
@@ -334,7 +361,8 @@ def _adversarial() -> List[EvalCase]:
                 Sentence("The project is a community solar installation in a disadvantaged area.",
                          planted=False, tag="adv4-grounded"),
                 Sentence("The system includes on-site battery storage to ensure resilience.",
-                         planted=True, tag="adv-unstated-battery-storage"),
+                         planted=True, tag="adv-unstated-battery-storage",
+                         hallucination_type="unstated-technical"),
             ],
         )
     )
@@ -348,7 +376,8 @@ def _adversarial() -> List[EvalCase]:
                 Sentence("The organization focuses on rural, low-income communities.",
                          planted=False, tag="adv5-grounded"),
                 Sentence("This work is conducted under a cooperative agreement with the USDA.",
-                         planted=True, tag="adv-inferred-usda-agreement"),
+                         planted=True, tag="adv-inferred-usda-agreement",
+                         hallucination_type="inferred-relationship"),
             ],
         )
     )
@@ -362,7 +391,8 @@ def _adversarial() -> List[EvalCase]:
                 Sentence("The organization is an established 501(c)(3) nonprofit.",
                          planted=False, tag="adv6-grounded"),
                 Sentence("With an annual operating budget approaching one million dollars, it has substantial capacity.",
-                         planted=True, tag="adv-overstated-budget"),
+                         planted=True, tag="adv-overstated-budget",
+                         hallucination_type="quantity-distortion"),
             ],
         )
     )
@@ -442,7 +472,8 @@ def _hard() -> List[EvalCase]:
                 Sentence("The applicant is a 501(c)(3), meeting the basic eligibility requirement.",
                          planted=False, tag="hard-elig-grounded"),
                 Sentence("The 300,000 dollar request falls within the program's stated award ceiling.",
-                         planted=True, tag="hard-ask-exceeds-ceiling"),
+                         planted=True, tag="hard-ask-exceeds-ceiling",
+                         hallucination_type="multi-hop-contradiction"),
             ],
         )
     )
@@ -456,7 +487,8 @@ def _hard() -> List[EvalCase]:
                 Sentence("The organization serves low-income public-housing residents.",
                          planted=False, tag="hard-mission-grounded"),
                 Sentence("The requested amount represents roughly a quarter of our annual budget.",
-                         planted=True, tag="hard-fraction-wrong"),
+                         planted=True, tag="hard-fraction-wrong",
+                         hallucination_type="quantity-distortion"),
             ],
         )
     )
@@ -472,7 +504,8 @@ def _hard() -> List[EvalCase]:
                 Sentence("The applicant requests support for a rooftop solar installation.",
                          planted=False, tag="hard-proj-grounded"),
                 Sentence("As a qualifying applicant, the organization is eligible for the program's rural set-aside.",
-                         planted=True, tag="hard-rural-setaside-false"),
+                         planted=True, tag="hard-rural-setaside-false",
+                         hallucination_type="multi-hop-contradiction"),
             ],
         )
     )
@@ -486,7 +519,8 @@ def _hard() -> List[EvalCase]:
                 Sentence("The project is a 120 kW rooftop solar system in urban Brooklyn.",
                          planted=False, tag="hard-size-grounded"),
                 Sentence("The system is currently operating and already delivering savings to residents.",
-                         planted=True, tag="hard-operating-vs-planning"),
+                         planted=True, tag="hard-operating-vs-planning",
+                         hallucination_type="temporal-state-error"),
             ],
         )
     )
@@ -500,7 +534,8 @@ def _hard() -> List[EvalCase]:
                 Sentence("The organization is an established 501(c)(3) nonprofit.",
                          planted=False, tag="hard-501c3-grounded"),
                 Sentence("Over the past decade it has built a sustained track record of solar deployment.",
-                         planted=True, tag="hard-decade-vs-4yr"),
+                         planted=True, tag="hard-decade-vs-4yr",
+                         hallucination_type="quantity-distortion"),
             ],
         )
     )
@@ -552,7 +587,8 @@ def _hard() -> List[EvalCase]:
                 Sentence("The applicant is a 501(c)(3) serving low-income residents.",
                          planted=False, tag="hard-elig2-grounded"),
                 Sentence("The proposed 120 megawatt installation will serve the surrounding district.",
-                         planted=True, tag="hard-mw-not-kw"),
+                         planted=True, tag="hard-mw-not-kw",
+                         hallucination_type="unit-confusion"),
             ],
         )
     )
@@ -567,7 +603,8 @@ def _hard() -> List[EvalCase]:
                 Sentence("The total project cost is 600,000 dollars.",
                          planted=False, tag="hard-cost-grounded"),
                 Sentence("The requested grant would fully fund the installation.",
-                         planted=True, tag="hard-fully-funds-false"),
+                         planted=True, tag="hard-fully-funds-false",
+                         hallucination_type="multi-hop-contradiction"),
             ],
         )
     )
@@ -576,7 +613,15 @@ def _hard() -> List[EvalCase]:
 
 
 def load_cases() -> List[EvalCase]:
-    """The full labeled set, by difficulty tier:
-    obvious (baseline) + adversarial (subtle) + hard (engineered to break Verify)."""
-    obvious = _hand_written() + _generated()  # already default difficulty="obvious"
-    return obvious + _adversarial() + _hard()
+    """The full labeled set: solar + cross-domain + adversarial."""
+    from eval.cases_adversarial import load_adversarial_cases
+    from eval.cases_education import load_education_cases
+    from eval.cases_legal import load_legal_cases
+    from eval.cases_medical import load_medical_cases
+
+    obvious = _hand_written() + _generated()
+    return (
+        obvious + _adversarial() + _hard()
+        + load_legal_cases() + load_medical_cases() + load_education_cases()
+        + load_adversarial_cases()
+    )
