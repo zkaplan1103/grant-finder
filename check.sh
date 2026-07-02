@@ -6,7 +6,7 @@ set -uo pipefail
 fail=0
 
 echo "== ruff =="
-ruff check app/ eval/ tests/ scripts/ || fail=1
+ruff check app/ eval/ tests/ scripts/ mcp_verify/ || fail=1
 
 echo "== pytest =="
 python -m pytest tests/ -q || fail=1

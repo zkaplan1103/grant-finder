@@ -178,6 +178,14 @@ class Draft(BaseModel):
 class UnsupportedClaim(BaseModel):
     claim: str = Field(..., description="The specific claim text that is unsupported.")
     reason: str = Field(..., description="Why it is unsupported by profile or requirements.")
+    # Explainable-verdict fields (optional; blank when the model omits them).
+    source_fact_checked: str = Field(
+        "", description="The specific source fact the claim was checked against."
+    )
+    category: str = Field(
+        "", description="fabrication | distortion | logical | attribution | omission."
+    )
+    severity: str = Field("", description="high | medium | low.")
 
 
 class VerifyResult(BaseModel):

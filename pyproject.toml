@@ -29,7 +29,7 @@ target-version = "py39"
 extend-select = ["I", "B"]
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "mcp_verify*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

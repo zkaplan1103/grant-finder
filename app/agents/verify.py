@@ -4,14 +4,17 @@ Checks every factual claim in a draft against the profile + the grant's stated
 requirements and returns the *specific* unsupported claims (not a thumbs-down) so
 the Drafter can revise against them. Runs on the strongest model because a cheap
 model silently waves through hallucinations. Adaptive thinking is on.
+
+Thin adapter over the domain-agnostic engine in `mcp_verify`: renders the
+profile + opportunity as the SOURCE and the draft sections as the DRAFT.
 """
 
 from __future__ import annotations
 
 from app.agents.client import LLMClient
-from app.agents.parsing import extract_json_object
-from app.agents.prompts import cached_system_blocks
+from app.agents.prompts import shared_prefix_text
 from app.models import Draft, Opportunity, Profile, UnsupportedClaim, VerifyResult
+from mcp_verify import core as verify_core
 
 MODEL = "claude-opus-4-8"
 # Adaptive thinking shares this budget with the answer; an undersized cap truncates
@@ -19,61 +22,33 @@ MODEL = "claude-opus-4-8"
 MAX_TOKENS = 16000
 THINKING = {"type": "adaptive"}
 
-SYSTEM_PROMPT = (
-    "You are the Verify agent for Grant Navigator — the trust guarantee. "
-    "You check a drafted application for any factual claim that is NOT supported "
-    "by the nonprofit profile or the funding opportunity's stated requirements "
-    "above.\n\n"
-    "Flag a claim when it asserts something the profile/requirements do not state, "
-    "or that contradicts them (wrong geography, invented award amount, invented "
-    "population served, eligibility the org does not actually meet). Do not flag "
-    "clearly-marked placeholders the caseworker must fill in. Be specific: return "
-    "the exact claim text and why it is unsupported, so the Drafter can fix it.\n\n"
-    "Before flagging, confirm the claim is actually unsupported: point to the "
-    "specific profile/requirement fact it contradicts, or state which fact is "
-    "missing. A claim that restates something the profile or requirements DO "
-    "support is correct and must NOT be flagged — even when it is a strong "
-    "eligibility assertion, and even when other claims in the same draft are "
-    "fabricated. Catching a fabricated eligibility claim matters (one can get an "
-    "org barred), but wrongly flagging a true claim erodes trust just as badly: "
-    "flag only what you can show is unsupported, not what merely sounds strong.\n\n"
-    "Write in plain, professional prose. Use no emojis, no markdown, and no "
-    "decorative symbols anywhere in your output.\n"
-    "Reply with a single JSON object and nothing else:\n"
-    '{"passed": <true|false>, "failures": [{"claim": "<text>", "reason": "<why>"}, ...]}'
-    "\nIf nothing is unsupported, return passed true with an empty failures list."
-)
-
 
 class VerifyAgent:
     def __init__(self, client: LLMClient) -> None:
         self._client = client
 
     def verify(self, profile: Profile, opportunity: Opportunity, draft: Draft) -> VerifyResult:
-        system = cached_system_blocks(SYSTEM_PROMPT, profile, opportunity)
-        messages = [
-            {
-                "role": "user",
-                "content": (
-                    "Check this draft for unsupported claims.\n\n"
-                    f"ELIGIBILITY SUMMARY:\n{draft.eligibility_summary}\n\n"
-                    f"BOILERPLATE:\n{draft.boilerplate}\n\n"
-                    "Return the JSON object only."
-                ),
-            }
-        ]
-        resp = self._client.complete(
+        source = shared_prefix_text(profile, opportunity)
+        draft_text = (
+            f"ELIGIBILITY SUMMARY:\n{draft.eligibility_summary}\n\n"
+            f"BOILERPLATE:\n{draft.boilerplate}"
+        )
+        report = verify_core.verify(
+            self._client,
+            source,
+            draft_text,
             model=MODEL,
-            system=system,
-            messages=messages,
             max_tokens=MAX_TOKENS,
             thinking=THINKING,
         )
-        data = extract_json_object(resp.text, resp.stop_reason)
         failures = [
-            UnsupportedClaim(claim=str(f["claim"]), reason=str(f["reason"]))
-            for f in (data.get("failures") or [])
+            UnsupportedClaim(
+                claim=f.claim,
+                reason=f.reason,
+                source_fact_checked=f.source_fact_checked,
+                category=f.category,
+                severity=f.severity,
+            )
+            for f in report.failures
         ]
-        # Trust the failures list as the source of truth for pass/fail.
-        passed = bool(data.get("passed", not failures)) and not failures
-        return VerifyResult(passed=passed, failures=failures)
+        return VerifyResult(passed=report.passed, failures=failures)
