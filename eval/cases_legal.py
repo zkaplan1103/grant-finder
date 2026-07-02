@@ -102,9 +102,12 @@ def load_legal_cases() -> List[EvalCase]:
                     planted=False, tag="legal-tenure-grounded",
                 ),
                 Sentence(
+                    # Parrots the opp's 125% FPL threshold; the profile only says
+                    # "low-income" — the specific threshold is never established.
                     "The organization serves populations at or below 125 percent of the "
                     "federal poverty level, consistent with funder requirements.",
-                    planted=False, tag="legal-poverty-grounded",
+                    planted=True, tag="legal-poverty-125fpl-claim",
+                    hallucination_type="unsupported-eligibility",
                 ),
                 Sentence(
                     "Last year the program provided direct representation to over 25,000 "
@@ -204,8 +207,8 @@ def load_legal_cases() -> List[EvalCase]:
             ],
             boilerplate_sentences=[
                 Sentence(
-                    "Our services target immigrants and tenants facing eviction at or "
-                    "below 125 percent of the federal poverty level.",
+                    "Our services target low-income immigrants and tenants facing "
+                    "eviction in Cook County, Illinois.",
                     planted=False, tag="legal-clean-boiler-1",
                 ),
             ],
@@ -275,9 +278,12 @@ def load_legal_cases() -> List[EvalCase]:
             profile=p(), opportunity=o(), difficulty="obvious",
             eligibility_sentences=[
                 Sentence(
+                    # Parrots the opp's 125% FPL threshold; the profile only says
+                    # "low-income" — the specific threshold is never established.
                     "The organization serves populations at or below 125 percent of the "
                     "federal poverty level.",
-                    planted=False, tag="legal-fpl-grounded",
+                    planted=True, tag="legal-fpl-125-claim",
+                    hallucination_type="unsupported-eligibility",
                 ),
             ],
             boilerplate_sentences=[

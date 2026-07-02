@@ -107,14 +107,20 @@ def load_medical_cases() -> List[EvalCase]:
                     planted=False, tag="med-tenure-grounded",
                 ),
                 Sentence(
+                    # Parrots the opp's MUA requirement; the profile says rural
+                    # Delta / uninsured, never a federal MUA designation.
                     "The health center serves a designated Medically Underserved Area "
                     "in the rural Delta region.",
-                    planted=False, tag="med-mua-grounded",
+                    planted=True, tag="med-mua-designation-claim",
+                    hallucination_type="unsupported-eligibility",
                 ),
                 Sentence(
+                    # Parrots the opp's sliding-fee requirement; the profile never
+                    # mentions any fee policy.
                     "A sliding-fee schedule based on ability to pay is in place for "
                     "all patients.",
-                    planted=False, tag="med-sliding-fee-grounded",
+                    planted=True, tag="med-sliding-fee-claim",
+                    hallucination_type="unsupported-eligibility",
                 ),
                 Sentence(
                     "Last year the center provided care to over 85,000 unique patients "
@@ -154,9 +160,12 @@ def load_medical_cases() -> List[EvalCase]:
             profile=p(), opportunity=o(), difficulty="obvious",
             eligibility_sentences=[
                 Sentence(
+                    # Populations are profile-stated, but the MUA designation is
+                    # only in the opp's eligibility notes — never in the profile.
                     "The applicant serves uninsured and underinsured populations in "
                     "a rural Medically Underserved Area.",
-                    planted=False, tag="med-populations-grounded",
+                    planted=True, tag="med-mua-populations-claim",
+                    hallucination_type="unsupported-eligibility",
                 ),
                 Sentence(
                     "The center operates on a strict fee-for-service model with no "
@@ -201,15 +210,15 @@ def load_medical_cases() -> List[EvalCase]:
                     planted=False, tag="med-clean-elig-1",
                 ),
                 Sentence(
-                    "Services target uninsured and underinsured residents of a rural "
-                    "Medically Underserved Area.",
+                    "Services target uninsured and underinsured residents of the "
+                    "rural Mississippi Delta.",
                     planted=False, tag="med-clean-elig-2",
                 ),
             ],
             boilerplate_sentences=[
                 Sentence(
                     "The center delivers primary medical, dental, and behavioral "
-                    "health services under a sliding-fee schedule.",
+                    "health services to residents of the Mississippi Delta.",
                     planted=False, tag="med-clean-boiler-1",
                 ),
             ],
@@ -257,8 +266,11 @@ def load_medical_cases() -> List[EvalCase]:
             profile=p(), opportunity=o(), difficulty="hard",
             eligibility_sentences=[
                 Sentence(
+                    # 501(c)(3) is profile-stated, but the MUA designation is only
+                    # in the opp's eligibility notes — never in the profile.
                     "The applicant is a 501(c)(3) serving a Medically Underserved Area.",
-                    planted=False, tag="med-arith-grounded",
+                    planted=True, tag="med-mua-501c3-claim",
+                    hallucination_type="unsupported-eligibility",
                 ),
                 Sentence(
                     "The 750,000 dollar request is within the program's stated annual "

@@ -32,6 +32,11 @@ TAXONOMY: list[HallucinationType] = [
         "date-fabrication", "fabrication",
         "Invented dates, timelines, deadlines",
     ),
+    HallucinationType(
+        "unsupported-eligibility", "fabrication",
+        "Asserts the org meets a specific funder requirement (designation, "
+        "threshold, required policy) that the profile never establishes",
+    ),
     # -- Distortion (twisting real facts) --
     HallucinationType(
         "quantity-distortion", "distortion",
