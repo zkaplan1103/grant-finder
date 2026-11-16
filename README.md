@@ -1,7 +1,6 @@
 # Grant Navigator
 
-**[▶ Live demo](https://grant-finder-production-5dac.up.railway.app)** &nbsp;·&nbsp;
-multi-agent grant matching with a verified, hallucination-checked draft step.
+Multi-agent grant matching with a verified, hallucination-checked draft step.
 
 > **The headline: a trust layer with a measured benchmark.** The Verify agent
 > catches fabricated claims before any draft is shown — and it's scored, not
